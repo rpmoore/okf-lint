@@ -72,3 +72,25 @@ Do not write the whole-bundle `insta`-snapshot integration test here — that be
 - Create: `tests/cli_tests.rs`
 - Create: `tests/fixtures/cli/max_line_length_override/fail.md` (single 120-character line, clean otherwise, valid trailing newline)
 - Modify: crate root module declarations (e.g. `mod cli;` / `mod lint;` wiring in `main.rs`) as needed so `main.rs` can reference `cli::Cli` and `lint::lint_bundle`.
+
+## As-built notes (post code-review)
+
+Implemented as planned, plus two fixes from code review (see
+`planning/implementation/code_review/section-07-{diff,review,interview}.md`):
+
+- **Broken-pipe safety**: `main.rs` writes diagnostics through a single locked
+  `io::stdout()` handle with `writeln!` (not per-line `println!`), and treats
+  `ErrorKind::BrokenPipe` as a clean exit-1 rather than a panic — relevant since this
+  tool's output is meant to be piped in CI (e.g. `okf-lint dir | head`).
+- **Error-message wording**: `LintError::PathNotFound` covers both "path doesn't exist"
+  and "path exists but unreadable" (permission-denied) — `lint_bundle` collapses both
+  into that variant via a single `std::fs::metadata` call. The stderr message was
+  worded neutrally as `"cannot access path: {path}"` rather than asserting the path is
+  missing.
+- `tests/cli_tests.rs` additionally asserts stderr is empty on all success/violation-path
+  tests (not just the error-path test), per the plan's stdout-only/stderr-only contract.
+- Added `docs/knowledge/cli.md` per CLAUDE.md's per-section knowledge-doc requirement
+  (not called out in the original plan) and linked it from `docs/knowledge/index.md`.
+
+Final test count: 5 tests in `tests/cli_tests.rs`, all passing; full suite (82 tests) and
+`cargo clippy --all-targets` clean of new warnings.

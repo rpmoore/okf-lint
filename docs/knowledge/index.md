@@ -11,3 +11,5 @@
   every `.md` file, independent of OKF structure
 * [Orchestration](orchestration.md) - file classification and `lint_bundle`,
   which dispatches to and merges output from all four check modules
+* [CLI](cli.md) - argument parsing, stdout/stderr formatting, and exit-code mapping for
+  the `okf-lint` binary
