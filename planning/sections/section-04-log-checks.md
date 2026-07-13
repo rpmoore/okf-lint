@@ -196,6 +196,28 @@ layer, since orchestration is section-06's responsibility).
   `[dependencies]`.
 - Create: `tests/fixtures/okf/log_date_heading/pass/pass.md`
 - Create: `tests/fixtures/okf/log_date_heading/fail/fail.md`
+- Create: `docs/knowledge/log-checks.md` (per CLAUDE.md)
+- Modify: `docs/knowledge/index.md` — add link
+
+## As-built notes
+
+Implemented as planned. `chrono` was already present in `Cargo.toml` from section-01, so no
+`Cargo.toml` change was needed. No `regex` crate is used anywhere in this project, so both
+patterns from the spec (`^## (.*)$` and `^\d{4}-\d{2}-\d{2}$`) were hand-rolled:
+
+- The heading match is `line.strip_prefix("## ")` — the third byte differing (`#` vs. a space)
+  is what naturally excludes `#`/`###`+ headings, so no separate level-counting logic was
+  needed.
+- The date-shape check (`is_date_shape`) walks `.as_bytes()` by index rather than slicing the
+  `&str`, which keeps it panic-safe against multi-byte UTF-8 content without any extra
+  validation code.
+
+Test count: 8 tests in `src/checks/log_md.rs`, covering every case enumerated in the plan
+(pass/fail fixtures, valid date, calendar-invalid-but-regex-shaped date, level-1/level-3
+exclusion, trailing text after date, multiple mixed-validity headings, no headings at all).
+
+`check_log` is not yet called from anywhere (expected — wiring into `lint.rs` is section-06's
+job); `cargo clippy` reports it as dead code, which is expected at this stage.
 
 ### Out of scope for this section
 
