@@ -70,3 +70,32 @@ Both tests use the same `assert_cmd`/`predicates` machinery already established 
 - Create: `tests/fixtures/integration_bundle/sub/concept-b.md` (or similarly named second concept doc under `sub/`, per the "couple of concept docs" requirement — exact naming/placement is an implementation choice as long as the constraints above are satisfied)
 - Modify: `tests/cli_tests.rs` (append the two tests above to the file created by section-07)
 - Create (on first test run, via `cargo insta review`): `tests/snapshots/*.snap` — the approved `insta` snapshot file(s) for the whole-bundle test, to be committed once reviewed.
+
+## As-built notes (post code-review)
+
+Implemented largely as planned, with these deviations (see
+`planning/implementation/code_review/section-08-{diff,review,interview}.md`):
+
+- **`sub/concept-b.md` renamed to `sub/concept-c.md`** (and its heading / the link in
+  `sub/index.md` updated to match). The original name collided with the root-level
+  `concept-b.md` (which deliberately fails rule 1) despite opposite behavior (this one is
+  fully clean) — code review flagged this as confusing for a human scanning the fixture
+  tree. Renaming didn't change the snapshot content since this file produces zero
+  diagnostics either way.
+- **No `cargo-insta` CLI available** in this environment. The pending `.snap.new` was
+  reviewed by hand-tracing all four seeded diagnostics against the check-module source
+  (line numbers, messages, and cross-file sort order all independently verified) rather
+  than via `cargo insta review`, then promoted to `.snap` by renaming and stripping the
+  `assertion_line:` metadata field. `cargo test` was run afterward and confirmed the
+  promoted snapshot passes byte-for-byte.
+- Added `docs/knowledge/integration-tests.md` per CLAUDE.md's per-section knowledge-doc
+  requirement (not called out in the original plan) and linked it from
+  `docs/knowledge/index.md`.
+- Rule coverage in the snapshot is intentionally partial (4 of 10 `Rule` variants) — every
+  rule already has dedicated unit-level fixture coverage from earlier sections; code review
+  confirmed this is consistent with the plan's own "keep it small and deliberate, not a
+  stress test" framing rather than a gap.
+
+Final test count: 7 tests in `tests/cli_tests.rs` (5 from section-07 + 2 new), all passing;
+full workspace suite (84 tests total) and `cargo clippy --all-targets` clean of new
+warnings.
