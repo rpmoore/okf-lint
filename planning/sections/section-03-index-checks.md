@@ -257,3 +257,29 @@ directory as `<path>`, exactly the intended file(s) are checked.
 - `/home/rpmoore/code/okf-lint/tests/fixtures/okf/index_frontmatter_placement/fail_root_extra_key/` (create)
 - `/home/rpmoore/code/okf-lint/tests/fixtures/okf/index_body_structure/pass/pass.md` (create)
 - `/home/rpmoore/code/okf-lint/tests/fixtures/okf/index_body_structure/fail/fail.md` (create)
+- `/home/rpmoore/code/okf-lint/docs/knowledge/index-checks.md` (create, per CLAUDE.md)
+- `/home/rpmoore/code/okf-lint/docs/knowledge/index.md` (modify: add link)
+
+## As-built notes
+
+Implemented as planned, with these clarifications settled during code review:
+
+- **Unclosed frontmatter and rule 4**: `FrontmatterResult::Unclosed` carries no
+  `body_start_line`, so rule 4 (`OkfIndexBodyStructure`) is skipped entirely when frontmatter
+  is unclosed — the whole remainder of the file is treated as part of the broken frontmatter
+  block rather than a scannable body. Confirmed with the plan owner; a non-root `index.md`
+  with unclosed frontmatter and a garbage body reports exactly one diagnostic
+  (`OkfIndexFrontmatterPlacement`), not one per garbage line.
+- `fail_nonroot/` was built as a two-file mini-bundle (`index.md` at the root, plain/valid;
+  `sub/index.md` nested, with frontmatter) rather than a single loose file, matching the
+  spec's note that these fixtures should double as real mini-bundles for later CLI/integration
+  tests. The unit test in this section reads `fail_nonroot/sub/index.md` directly and calls
+  `check_index(.., is_root: false)`.
+- Test coverage extended beyond the plan's explicit list (added during code review) to also
+  cover: a multi-line stray paragraph (locks in "one diagnostic per line, not per paragraph"),
+  a root `index.md` with no frontmatter at all, and a root `index.md` with an empty
+  frontmatter mapping (`Value::Null` path). Final count: 15 tests in
+  `src/checks/index_md.rs` (up from the ~11 the plan enumerated).
+- `check_index` is not yet called from anywhere (expected — wiring into `lint.rs` is
+  section-06's job); `cargo clippy` reports it and its helpers as dead code, which is expected
+  at this stage.
