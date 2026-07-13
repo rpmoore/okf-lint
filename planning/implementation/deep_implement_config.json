@@ -1,0 +1,29 @@
+{
+  "plugin_root": "/home/rpmoore/.claude/plugins/cache/piercelamb-plugins/deep-implement/0.2.1",
+  "sections_dir": "/home/rpmoore/code/okf-lint/planning/sections",
+  "target_dir": "/home/rpmoore/code/okf-lint",
+  "state_dir": "/home/rpmoore/code/okf-lint/planning/implementation",
+  "git_root": "/home/rpmoore/code/okf-lint",
+  "commit_style": "simple",
+  "test_command": "uv run pytest",
+  "sections": [
+    "section-01-foundation",
+    "section-02-concept-checks",
+    "section-03-index-checks",
+    "section-04-log-checks",
+    "section-05-style-checks",
+    "section-06-orchestration",
+    "section-07-cli",
+    "section-08-integration-tests"
+  ],
+  "sections_state": {},
+  "pre_commit": {
+    "present": false,
+    "type": "none",
+    "config_file": null,
+    "native_hook": null,
+    "may_modify_files": false,
+    "detected_formatters": []
+  },
+  "created_at": "2026-07-13T21:44:00.681482+00:00"
+}
