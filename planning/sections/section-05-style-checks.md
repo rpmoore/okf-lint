@@ -1,5 +1,25 @@
 # section-05-style-checks: Markdown Style Checks
 
+## Implementation notes (actual)
+
+Implemented as planned in `src/checks/style.rs`, registered via `pub mod style;` in
+`src/checks/mod.rs`. All 19 tests pass (`cargo test style`).
+
+Deviations from plan:
+- `trailing_newline/fail/fail.md` uses the "no trailing `\n` at all" variant (the plan
+  offered a choice between that and ending in `\n\n`) — documented in
+  `docs/knowledge/style-checks.md`.
+- Added an early return (`if content.is_empty() { return diagnostics; }`) right after the
+  trailing-newline check, so a 0-byte file produces zero real lines rather than one
+  phantom blank line from `split('\n')`. Behavior-neutral for current rules (code review
+  finding, not spec'd), but removes a latent trap for future rule additions.
+- Added one extra test beyond the plan's list:
+  `trailing_blank_lines_fire_both_newline_and_blank_run_rules`, covering content ending in
+  `\n\n\n` (co-firing `StyleTrailingNewline` and `StyleConsecutiveBlankLines`).
+
+Knowledge doc: `docs/knowledge/style-checks.md` (new), linked from
+`docs/knowledge/index.md`.
+
 ## Dependencies
 
 This section depends on **section-01-foundation** being complete, specifically:

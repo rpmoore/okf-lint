@@ -7,3 +7,5 @@
 * [Index checks](index-checks.md) - OKF frontmatter-placement and
   body-structure rules for `index.md` files
 * [Log checks](log-checks.md) - OKF date-heading rule for `log.md` files
+* [Style checks](style-checks.md) - generic markdown hygiene rules applied to
+  every `.md` file, independent of OKF structure
