@@ -159,3 +159,35 @@ For reference/context (implemented by section-06, not here): every relative path
 6. Create `src/walk.rs` with `collect_md_files` (using `LintError` from `src/lint.rs`) as specified in §4, plus its five inline tests.
 7. Wire `mod diagnostic;`, `mod frontmatter;`, `mod lint;`, `mod walk;` into `src/main.rs` (or a future `lib.rs` if the implementer prefers a lib+bin split — the plan doesn't mandate one, `main.rs` module declarations are sufficient) so the modules compile as part of the crate.
 8. Run `cargo build`, `cargo test`, and `cargo clippy` to confirm everything compiles cleanly and all inline tests pass before handing off to sections 02-05.
+
+## Implementation Notes (post-review)
+
+Implemented as specified, with the following additions from code review:
+
+- **CRLF tolerance in `split_frontmatter`.** The delimiter-line comparison
+  (`"---"`) now trims a trailing `\r` before matching, so CRLF-terminated
+  files are detected the same as LF-terminated ones. Not covered by the
+  original plan; added per user decision during code review. New test:
+  `crlf_line_endings_are_treated_like_lf`.
+- **Root-walk bug found via review.** `collect_md_files`'s dot-file
+  exclusion originally applied to the walked root path itself, not just
+  entries nested under it. This only surfaces when the root's own
+  directory name starts with `.` (e.g. `tempfile::TempDir`'s default
+  naming) — the fix restricts the dot-check to `entry.depth() > 0`. New
+  regression test: `dot_prefixed_root_itself_is_still_walked`.
+- **`tempfile` added as a direct dev-dependency** (the plan explicitly
+  permitted this as an alternative to hand-rolled temp dirs) — `walk.rs`
+  tests now use `tempfile::TempDir` for RAII cleanup instead of manual
+  `fs::remove_dir_all` calls that would be skipped on an early panic.
+- **`permission_denied_subdirectory_is_io_error`** now checks whether the
+  `chmod 0o000` actually made the directory unreadable before asserting,
+  and skips (rather than falsely passing/failing) when run with
+  privileges that bypass Unix permission bits (e.g. root in some CI
+  containers).
+- **`LintError`'s dead-code warnings are left unsuppressed** (no
+  `#[allow(dead_code)]`), per the plan's own note to "expect and ignore"
+  them until section-06 wires up the unused variants.
+- **`docs/knowledge/index.md` and `docs/knowledge/foundation.md`** were
+  added per the project's CLAUDE.md requirement to document each
+  touched section in the OKF knowledge base — not called for by this
+  plan, but a standing project-level instruction.
