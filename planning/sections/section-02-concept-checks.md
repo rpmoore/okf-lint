@@ -200,3 +200,17 @@ philosophy.
   don't split into two separately-callable functions, since `check_concept`
   is the single public entry point this module exposes (matching the
   signature above and the module layout in the plan).
+
+## Implementation Notes (post-review)
+
+Implemented as specified, with the following additions from code review:
+
+- **Key lookup simplified.** `mapping.get("type")` (via `serde_yaml_ng`'s
+  `Index` impl for `str`) instead of allocating a `Value::String("type")`
+  per call.
+- **New test: `invalid_yaml_syntax_fires_rule_1`.** The original test set
+  covered `None`/`Unclosed` and "well-formed but not a mapping" as ways
+  into `OkfMissingFrontmatter`, but never exercised a genuine YAML syntax
+  error (e.g. an unclosed flow mapping) — added to close that gap.
+- **`docs/knowledge/concept-checks.md`** added and linked from
+  `docs/knowledge/index.md`, per CLAUDE.md.

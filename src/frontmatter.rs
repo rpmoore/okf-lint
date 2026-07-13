@@ -43,7 +43,10 @@ mod tests {
 
     #[test]
     fn no_leading_delimiter_is_none() {
-        assert_eq!(split_frontmatter("# Title\n\nbody"), FrontmatterResult::None);
+        assert_eq!(
+            split_frontmatter("# Title\n\nbody"),
+            FrontmatterResult::None
+        );
     }
 
     #[test]

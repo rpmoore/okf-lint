@@ -1,3 +1,4 @@
+mod checks;
 mod diagnostic;
 mod frontmatter;
 mod lint;
