@@ -16,7 +16,28 @@
     "section-07-cli",
     "section-08-integration-tests"
   ],
-  "sections_state": {},
+  "sections_state": {
+    "section-01-foundation": {
+      "status": "complete",
+      "commit_hash": "a02e7fdd4a6ad3dba823479bf37120556a97b4ab"
+    },
+    "section-02-concept-checks": {
+      "status": "complete",
+      "commit_hash": "375b78e5a5741c839fb9369f913e2865e5eaa096"
+    },
+    "section-03-index-checks": {
+      "status": "complete",
+      "commit_hash": "3447bad"
+    },
+    "section-04-log-checks": {
+      "status": "complete",
+      "commit_hash": "3776239"
+    },
+    "section-05-style-checks": {
+      "status": "complete",
+      "commit_hash": "f2b61d2"
+    }
+  },
   "pre_commit": {
     "present": false,
     "type": "none",
