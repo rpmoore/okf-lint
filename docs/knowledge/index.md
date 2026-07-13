@@ -9,3 +9,5 @@
 * [Log checks](log-checks.md) - OKF date-heading rule for `log.md` files
 * [Style checks](style-checks.md) - generic markdown hygiene rules applied to
   every `.md` file, independent of OKF structure
+* [Orchestration](orchestration.md) - file classification and `lint_bundle`,
+  which dispatches to and merges output from all four check modules

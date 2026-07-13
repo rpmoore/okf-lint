@@ -6,6 +6,26 @@ The section content is:
 
 # Section 06: Orchestration
 
+## Implementation notes (actual)
+
+Implemented in the existing (section-01-stubbed) `src/lint.rs`: `FileKind`/`classify`,
+`sort_diagnostics`, and `lint_bundle` were added alongside the pre-existing `LintError`.
+12 tests in `lint::tests`, 77 total in the crate, all passing.
+
+Deviations from plan:
+- Root existence/type check uses a single `std::fs::metadata(root)` call (mapping any
+  error, including "doesn't exist", to `PathNotFound`) rather than separate `exists()` +
+  `is_dir()` calls — avoids a TOCTOU window and an extra syscall. Same externally-visible
+  behavior.
+- Added two tests beyond the plan's list (from code review): an end-to-end
+  `lint_bundle`-level test confirming `is_root` threads correctly to `check_index` for
+  both root and nested `index.md` (the plan's tests only covered `classify()` in
+  isolation), and a unix-gated permission-denied test exercising `lint_bundle`'s own
+  `LintError::Io` mapping (mirroring `walk.rs`'s existing pattern).
+
+Knowledge doc: `docs/knowledge/orchestration.md` (new), linked from
+`docs/knowledge/index.md`.
+
 ## Overview
 
 This section implements file classification and the top-level orchestration function `lint_bundle`, which ties together all four check modules (concept, index, log, style) built in sections 02-05. This is the module that turns a bundle root path into the final, sorted list of diagnostics that the CLI (section 07) will print.
