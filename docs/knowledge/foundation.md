@@ -26,7 +26,12 @@ orchestration layer import.
   block), `Unclosed` (opening `---` with no closing `---`), or
   `Found { yaml_text, body_start_line }`.
 - The opening/closing `---` delimiter comparison tolerates a trailing `\r`
-  so CRLF-terminated files are detected the same as LF-terminated ones.
+  (`strip_cr`) so CRLF-terminated files are detected the same as
+  LF-terminated ones. Every line pushed into `yaml_text` is also passed
+  through `strip_cr`, not just the delimiter lines — otherwise CRLF input
+  would leave embedded `\r` characters inside the extracted YAML payload,
+  making downstream YAML parsing depend on how the parser treats stray
+  carriage returns instead of behaving identically to LF input.
 - Shared by the concept-document checker and the `index.md` checker, since
   both need the same delimiter-detection logic with different rules about
   what's allowed inside.

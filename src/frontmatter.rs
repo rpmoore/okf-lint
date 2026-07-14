@@ -31,7 +31,7 @@ pub fn split_frontmatter(content: &str) -> FrontmatterResult {
                 body_start_line: consumed + 1,
             };
         }
-        yaml_lines.push(line);
+        yaml_lines.push(strip_cr(line));
     }
 
     FrontmatterResult::Unclosed
@@ -81,6 +81,18 @@ mod tests {
     }
 
     #[test]
+    fn crlf_multiline_yaml_has_no_embedded_cr() {
+        let content = "---\r\ntype: concept\r\ntitle: Foo\r\n---\r\nbody\r\n";
+        match split_frontmatter(content) {
+            FrontmatterResult::Found { yaml_text, .. } => {
+                assert_eq!(yaml_text, "type: concept\ntitle: Foo");
+                assert!(!yaml_text.contains('\r'));
+            }
+            other => panic!("expected Found, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn delimiter_with_trailing_characters_is_none() {
         assert_eq!(
             split_frontmatter("--- \ntype: concept\n---\nbody"),
@@ -96,7 +108,7 @@ mod tests {
                 yaml_text,
                 body_start_line,
             } => {
-                assert_eq!(yaml_text, "type: concept\r");
+                assert_eq!(yaml_text, "type: concept");
                 assert_eq!(body_start_line, 4);
             }
             other => panic!("expected Found, got {other:?}"),
