@@ -72,14 +72,22 @@ this project's own OKF docs, which live under `docs/knowledge`, for example:
 docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint /data
 ```
 
-`fmt` works the same way:
+`fmt --check` works the same way, since like `lint` it only reads:
 
 ```bash
-docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint fmt /data
 docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint fmt /data --check
 ```
 
-If you're only linting (not `fmt`, which writes fixes back), mount read-only with
+Writing fixes back with plain `fmt` is different: the image runs as a non-root user
+(uid `65532`, inherited from the `cgr.dev/chainguard/static` base), so it typically
+can't write to a bind-mounted host directory owned by your own user — add
+`--user "$(id -u):$(id -g)"` so the container writes as you instead:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data --user "$(id -u):$(id -g)" rpmoore/okf-lint fmt /data
+```
+
+If you're only linting (not writing fixes back with `fmt`), mount read-only with
 `-v "$PWD/docs/knowledge":/data:ro`.
 
 ## License
