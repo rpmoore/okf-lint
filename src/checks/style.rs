@@ -1,8 +1,17 @@
 use crate::diagnostic::{Diagnostic, Rule};
 
+/// A table row can't be shortened without breaking its column structure, so
+/// `StyleLineLength` exempts them rather than reporting an unfixable violation.
+/// Shared with `style_fix.rs`, which uses the same definition to decide what
+/// `fix_style` must leave alone.
+pub(crate) fn is_table_row(line: &str) -> bool {
+    line.contains('|')
+}
+
 /// Runs the 5 markdown hygiene rules (line length, trailing whitespace, trailing
 /// newline, consecutive blank lines, hard tabs) uniformly over `content`, independent
-/// of any OKF-specific structural checks.
+/// of any OKF-specific structural checks. `StyleLineLength` is the one exception to
+/// "uniform": table rows are exempt (see `is_table_row`).
 pub fn check_style(content: &str, max_line_length: usize) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -28,7 +37,7 @@ pub fn check_style(content: &str, max_line_length: usize) -> Vec<Diagnostic> {
         let line_no = idx + 1;
 
         let char_count = line.chars().count();
-        if char_count > max_line_length {
+        if char_count > max_line_length && !is_table_row(line) {
             diagnostics.push(Diagnostic {
                 line: line_no,
                 rule: Rule::StyleLineLength,
@@ -279,6 +288,25 @@ mod tests {
         let content = format!("{} \n", "a".repeat(101));
         let diags = check_style(&content, MAX);
         assert!(diags.iter().any(|d| d.rule == Rule::StyleLineLength));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.rule == Rule::StyleTrailingWhitespace)
+        );
+    }
+
+    #[test]
+    fn overlength_table_row_is_exempt_from_line_length_rule() {
+        let content = format!("| {} |\n", "a".repeat(101));
+        let diags = check_style(&content, MAX);
+        assert!(diags.iter().all(|d| d.rule != Rule::StyleLineLength));
+    }
+
+    #[test]
+    fn overlength_table_row_still_fires_other_style_rules() {
+        let content = format!("| {} | \n", "a".repeat(101));
+        let diags = check_style(&content, MAX);
+        assert!(diags.iter().all(|d| d.rule != Rule::StyleLineLength));
         assert!(
             diags
                 .iter()

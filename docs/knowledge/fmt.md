@@ -24,25 +24,33 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
      exactly what `check_style` flags as trailing whitespace.
   3. **Consecutive blank lines collapsed**: any run of 2+ whitespace-only lines
      collapses to a single empty line.
-  4. **Overlong-line rewrap, restricted to unambiguous plain text**: lines are grouped
-     into maximal blocks of contiguous non-blank lines. A block is only rewrapped if
-     *none* of its lines fall into a skip category — frontmatter, fenced code
-     (` ``` `/`~~~`), headings (`#`), table rows (contains `|`), list
-     items/blockquotes (`-`/`*`/`+`/`>`/`1.`/`1)`), or a line carrying a link/URL
-     (`](`, `http://`, `https://`). Skip-category blocks are left completely alone,
-     overlong lines included — line-length is the one style rule `fmt` can leave
-     unresolved by design, since safe generic markdown rewrap is out of scope for
-     tables/code/links. Qualifying blocks get greedily repacked: words joined on
-     single spaces, packed onto lines ≤ `max_line_length` chars; a single word longer
-     than the limit gets its own over-length line (unavoidable — words are never
-     split).
+  4. **Overlong-line rewrap**: lines are grouped into maximal blocks of contiguous
+     non-blank lines (`compute_skip_flags`). A block is left completely alone —
+     overlong lines included — if any of its lines are frontmatter, fenced code
+     (` ``` `/`~~~`), a heading (`#`), or a table row (`style::is_table_row`, shared
+     with `check_style`'s `StyleLineLength` exemption — see `docs/knowledge/style-checks.md`).
+     Blockquotes (`>`) are likewise left alone. Everything else *is* rewrapped:
+     - **Plain paragraphs** (`wrap_paragraph_block`): the block's lines are joined and
+       greedily repacked into lines ≤ `max_line_length` chars.
+     - **List items** (`wrap_list_block`, triggered when any line in the block matches
+       `list_marker_prefix` — `-`/`*`/`+`/`1.`/`1)`): each item (marker line plus any
+       non-marker continuation lines that follow it) is repacked independently, with
+       continuation lines given a hanging indent equal to the marker's width (`"- "` →
+       2 spaces, `"10. "` → 4) so wrapped bullets don't get folded into one paragraph.
+     - Both wrap paths tokenize via `tokenize`, which treats a whole `[text](url)` span
+       as one unsplittable token — even though it may contain internal spaces — so a
+       link is never broken across lines. Bare URLs stay intact automatically (no
+       internal whitespace to split on). A single token that's still longer than
+       `max_line_length` on its own (a long link, a long word) gets its own
+       over-length line — unavoidable, tokens are never split mid-token.
   5. **Trailing newline normalized**: any trailing blank lines are dropped, then
      exactly one `\n` is appended. Empty input (`""`) is returned unchanged — there's
      no content to format, so `fmt` leaves a still-nonconformant empty file alone
      rather than fabricating a bare newline.
 - `fix_style` is idempotent: running it twice produces the same output as running it
   once, and running `check_style` on its output reports none of the 5 style rules
-  except possibly `StyleLineLength` on lines inside a skip-category block.
+  (table-row `StyleLineLength` is exempt in `check_style` itself, not just skipped by
+  `fix_style` — see `docs/knowledge/style-checks.md`).
 
 ## `src/fmt.rs`
 
@@ -56,9 +64,11 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
   back with `std::fs::write` (files that don't need a fix are never touched, to avoid
   needless mtime churn). After the fix pass, when `check` is `false`,
   `lint::lint_bundle` is re-run against `root` (files on disk are now fixed) to
-  populate `remaining` with whatever `fmt` couldn't or shouldn't fix — skip-category
-  overlong lines and all structural OKF rules. When `check` is `true`, `remaining` is
-  left empty; `--check` mode is about "what would change", not full diagnostics.
+  populate `remaining` with whatever `fmt` couldn't or shouldn't fix — overlong lines
+  inside frontmatter/code/headings/blockquotes (table rows don't appear here at all,
+  since `check_style` itself exempts them) and all structural OKF rules. When `check`
+  is `true`, `remaining` is left empty; `--check` mode is about "what would change",
+  not full diagnostics.
 
 ## `src/cli.rs` / `src/main.rs`
 
@@ -83,10 +93,12 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
 ## Tests
 
 - `src/checks/style_fix.rs` unit tests use fixture pairs under
-  `tests/fixtures/fmt/<rule>/{before,after}.md`, one pair per pipeline stage above,
-  plus `max_line_length_skip/before.md` (asserts a table row, fenced code block,
-  heading, list item, and link line — each deliberately over `max_line_length` — are
-  byte-for-byte unchanged by `fix_style`) and idempotency/no-op checks.
+  `tests/fixtures/fmt/<rule>/{before,after}.md`, one pair per pipeline stage above:
+  `max_line_length_skip/before.md` (heading, table, fenced code, blockquote — each
+  deliberately over `max_line_length` — byte-for-byte unchanged by `fix_style`),
+  `max_line_length_list/{before,after}.md` (mixed bullet/ordered list, hanging-indent
+  wrap), `max_line_length_link/{before,after}.md` (a paragraph with a link, the link
+  staying one unsplit token), plus idempotency/no-op checks.
 - `src/fmt.rs` unit tests cover the same `LintError` cases as `lint_bundle`
   (nonexistent root, root-is-a-file) plus in-place fixing, `--check` leaving files
   untouched, and a clean bundle producing no changed files.

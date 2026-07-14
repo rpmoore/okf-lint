@@ -3,9 +3,11 @@
 ///   1. hard tabs -> spaces
 ///   2. trailing whitespace trimmed (also normalizes CRLF -> LF)
 ///   3. consecutive blank lines collapsed to one
-///   4. overlong lines rewrapped, but only inside paragraphs that are unambiguously
-///      plain text (no frontmatter, code fences, headings, tables, list items,
-///      blockquotes, or links/URLs)
+///   4. overlong lines rewrapped. Frontmatter, fenced code, headings, tables, and
+///      blockquotes are left alone entirely. Plain paragraphs and list items *are*
+///      rewrapped: a `[text](url)` link or bare URL is treated as one unsplittable
+///      token (never broken across lines), and list item continuation lines get a
+///      hanging indent matching the marker width (`"- "` -> 2 spaces, `"10. "` -> 4).
 ///   5. exactly one trailing newline
 pub fn fix_style(content: &str, max_line_length: usize, tab_width: usize) -> String {
     if content.is_empty() {
@@ -77,30 +79,77 @@ fn rewrap_overlong_blocks(lines: Vec<String>, max_line_length: usize) -> Vec<Str
         let is_rewrap_candidate = !block_skip.iter().any(|&s| s);
         let has_overlong_line = block.iter().any(|l| l.chars().count() > max_line_length);
 
-        if is_rewrap_candidate && has_overlong_line {
-            out.extend(wrap_block(block, max_line_length));
-        } else {
+        if !is_rewrap_candidate || !has_overlong_line {
             out.extend(block.iter().cloned());
+        } else if block.iter().any(|l| list_marker_prefix(l).is_some()) {
+            out.extend(wrap_list_block(block, max_line_length));
+        } else {
+            out.extend(wrap_paragraph_block(block, max_line_length));
         }
     }
     out
 }
 
-fn wrap_block(block: &[String], max_line_length: usize) -> Vec<String> {
+fn wrap_paragraph_block(block: &[String], max_line_length: usize) -> Vec<String> {
     let text = block.join(" ");
-    let words: Vec<&str> = text.split_whitespace().collect();
+    pack(&tokenize(&text), max_line_length, "", "")
+}
 
+/// Splits a block into list items (each line matching `list_marker_prefix` starts a
+/// new item; subsequent non-marker lines are folded in as that item's continuation
+/// text) and wraps each item independently with a hanging indent under its marker.
+fn wrap_list_block(block: &[String], max_line_length: usize) -> Vec<String> {
     let mut out = Vec::new();
-    let mut current = String::new();
-    for word in words {
-        if current.is_empty() {
-            current.push_str(word);
-        } else if current.chars().count() + 1 + word.chars().count() <= max_line_length {
+    let mut idx = 0;
+    while idx < block.len() {
+        let line = &block[idx];
+        let Some(marker) = list_marker_prefix(line) else {
+            // Stray non-marker line before any marker in this block: nothing sane to
+            // hang it off of, so leave it as-is.
+            out.push(line.clone());
+            idx += 1;
+            continue;
+        };
+
+        let mut text = line[marker.len()..].to_string();
+        idx += 1;
+        while idx < block.len() && list_marker_prefix(&block[idx]).is_none() {
+            text.push(' ');
+            text.push_str(block[idx].trim_start());
+            idx += 1;
+        }
+
+        let indent = " ".repeat(marker.chars().count());
+        out.extend(pack(&tokenize(&text), max_line_length, &marker, &indent));
+    }
+    out
+}
+
+/// Greedily packs `tokens` into lines of at most `max_line_length` chars. The first
+/// line starts with `first_prefix` (a list marker, or `""` for a plain paragraph);
+/// every subsequent line starts with `indent`. No token is ever split, even if a
+/// single token exceeds `max_line_length` on its own (e.g. a long link or URL).
+fn pack(
+    tokens: &[String],
+    max_line_length: usize,
+    first_prefix: &str,
+    indent: &str,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current = first_prefix.to_string();
+    let mut has_content = false;
+    for token in tokens {
+        if !has_content {
+            current.push_str(token);
+            has_content = true;
+        } else if current.chars().count() + 1 + token.chars().count() <= max_line_length {
             current.push(' ');
-            current.push_str(word);
+            current.push_str(token);
         } else {
             out.push(std::mem::take(&mut current));
-            current.push_str(word);
+            current = indent.to_string();
+            current.push_str(token);
+            has_content = true;
         }
     }
     if !current.is_empty() {
@@ -109,8 +158,53 @@ fn wrap_block(block: &[String], max_line_length: usize) -> Vec<String> {
     out
 }
 
+/// Splits `text` into wrap tokens, treating a `[link text](url)` span as one
+/// unsplittable token (even though it may contain internal spaces) so rewrapping
+/// never breaks link syntax across lines. Bare URLs stay intact automatically, since
+/// they contain no whitespace for a plain whitespace split to break on.
+fn tokenize(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut tokens = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        if bytes[i] == b'['
+            && let Some(end) = find_link_end(text, i)
+        {
+            tokens.push(text[i..end].to_string());
+            i = end;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && !bytes[i].is_ascii_whitespace() {
+            if bytes[i] == b'[' && i > start && find_link_end(text, i).is_some() {
+                break;
+            }
+            i += 1;
+        }
+        tokens.push(text[start..i].to_string());
+    }
+    tokens
+}
+
+/// If `text[start..]` begins a well-formed `[...](...)` span (`start` must point at
+/// `'['`), returns the index just past its closing `)`. Otherwise `None`.
+fn find_link_end(text: &str, start: usize) -> Option<usize> {
+    debug_assert_eq!(text.as_bytes()[start], b'[');
+    let close_bracket = text[start + 1..].find(']')? + start + 1;
+    if text.as_bytes().get(close_bracket + 1) != Some(&b'(') {
+        return None;
+    }
+    let close_paren = text[close_bracket + 2..].find(')')? + close_bracket + 2;
+    Some(close_paren + 1)
+}
+
 /// Per-line "do not rewrap this" flags: frontmatter, fenced code blocks, headings,
-/// table rows, list items/blockquotes, and lines carrying a link or bare URL.
+/// table rows, and blockquotes. List items and plain paragraphs are handled by
+/// `wrap_list_block`/`wrap_paragraph_block` instead of being skipped.
 fn compute_skip_flags(lines: &[String]) -> Vec<bool> {
     let mut flags = vec![false; lines.len()];
     let mut idx = 0;
@@ -142,9 +236,8 @@ fn compute_skip_flags(lines: &[String]) -> Vec<bool> {
             continue;
         }
         if is_heading(&lines[i])
-            || lines[i].contains('|')
-            || is_list_or_quote(&lines[i])
-            || has_link_or_url(&lines[i])
+            || crate::checks::style::is_table_row(&lines[i])
+            || is_blockquote(&lines[i])
         {
             flags[i] = true;
         }
@@ -157,29 +250,34 @@ fn is_heading(line: &str) -> bool {
     line.trim_start().starts_with('#')
 }
 
-fn is_list_or_quote(line: &str) -> bool {
-    let t = line.trim_start();
-    if t.starts_with('>') {
-        return true;
-    }
-    if t.starts_with("- ") || t.starts_with("* ") || t.starts_with("+ ") {
-        return true;
-    }
-    if t == "-" || t == "*" || t == "+" {
-        return true;
-    }
-    let digits_end = t.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
-    if digits_end > 0 {
-        let rest = &t[digits_end..];
-        if rest.starts_with(". ") || rest.starts_with(") ") {
-            return true;
-        }
-    }
-    false
+fn is_blockquote(line: &str) -> bool {
+    line.trim_start().starts_with('>')
 }
 
-fn has_link_or_url(line: &str) -> bool {
-    line.contains("](") || line.contains("http://") || line.contains("https://")
+/// Returns the marker prefix (leading whitespace + marker + exactly one space) if
+/// `line` starts a bullet (`- `/`* `/`+ `) or ordered (`1. `/`1) `) list item.
+fn list_marker_prefix(line: &str) -> Option<String> {
+    let leading_ws_len = line.len() - line.trim_start().len();
+    let rest = &line[leading_ws_len..];
+
+    for bullet in ["- ", "* ", "+ "] {
+        if rest.starts_with(bullet) {
+            return Some(line[..leading_ws_len + bullet.len()].to_string());
+        }
+    }
+
+    let digits_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
+    if digits_end > 0 {
+        let after_digits = &rest[digits_end..];
+        for sep in [". ", ") "] {
+            if after_digits.starts_with(sep) {
+                let marker_len = digits_end + sep.len();
+                return Some(line[..leading_ws_len + marker_len].to_string());
+            }
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -232,8 +330,22 @@ mod tests {
     #[test]
     fn overlong_lines_in_skip_contexts_are_left_alone() {
         let before = fixture("max_line_length_skip", "before");
-        // Nothing should change: table/code/heading/list/link lines aren't rewrapped.
+        // Nothing should change: heading/table/code/blockquote lines aren't rewrapped.
         assert_eq!(fix_style(&before, MAX, 4), before);
+    }
+
+    #[test]
+    fn list_items_are_rewrapped_with_hanging_indent() {
+        let before = fixture("max_line_length_list", "before");
+        let after = fixture("max_line_length_list", "after");
+        assert_eq!(fix_style(&before, MAX, 4), after);
+    }
+
+    #[test]
+    fn links_are_wrapped_as_a_single_unsplittable_token() {
+        let before = fixture("max_line_length_link", "before");
+        let after = fixture("max_line_length_link", "after");
+        assert_eq!(fix_style(&before, MAX, 4), after);
     }
 
     #[test]

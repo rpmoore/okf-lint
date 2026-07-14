@@ -16,10 +16,12 @@ designed to isolate one rule at a time.
 index.md              # root index.md — clean (no frontmatter, heading + list body)
 log.md                 # one valid date heading, one invalid (2026-02-30 → OkfLogDateHeading)
 concept-a.md            # valid frontmatter/type, one line with trailing whitespace
-concept-b.md            # missing frontmatter entirely → OkfMissingFrontmatter (rule 2 correctly
-                          # does not also fire, since check_concept short-circuits on FrontmatterResult::None)
+concept-b.md            # missing frontmatter entirely → OkfMissingFrontmatter (rule 2
+                          # correctly does not also fire, since check_concept short-circuits
+                          # on FrontmatterResult::None)
 sub/
-  index.md               # non-root index, no frontmatter, one stray paragraph line → OkfIndexBodyStructure
+  index.md               # non-root index, no frontmatter, one stray paragraph line →
+                          # OkfIndexBodyStructure
   concept-c.md            # valid frontmatter, fully clean (no diagnostics)
 ```
 

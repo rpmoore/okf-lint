@@ -23,7 +23,12 @@ checks in `okf.rs`/`index_md.rs`/`log_md.rs`.
   immediately after the trailing-newline check — there are zero real lines, not a
   single phantom blank one.
 - **`StyleLineLength`**: `line.chars().count() > max_line_length` — Unicode scalar count,
-  not byte length, so multi-byte UTF-8 (e.g. `é`) counts as 1 char each.
+  not byte length, so multi-byte UTF-8 (e.g. `é`) counts as 1 char each. Exempts table rows
+  (`is_table_row`, `pub(crate)` in `style.rs` — any line containing `|`): a table can't be
+  shortened without breaking its column structure, so flagging it would report a violation
+  the user has no reasonable way to fix. `is_table_row` is shared with `style_fix.rs`, which
+  uses the same definition to decide what `fix_style` must leave un-rewrapped — the two stay
+  in sync by construction, not by convention.
 - **`StyleTrailingWhitespace`**: line ends with space, tab, or `\r`. The `\r` case is what
   catches CRLF-terminated input, since content is only ever split on `\n`.
 - **`StyleTrailingNewline`**: checked against raw `content`, not the split line list. Violates
@@ -39,7 +44,9 @@ checks in `okf.rs`/`index_md.rs`/`log_md.rs`.
   `StyleTrailingWhitespace` if the tab is also the last character.
 - All 5 checks are independent passes over the same real-line list; nothing about one rule
   suppresses another firing on the same line (e.g. an over-length line with trailing
-  whitespace produces both diagnostics).
+  whitespace produces both diagnostics) — except `StyleLineLength` vs. table rows, which is
+  a deliberate exemption rather than incidental suppression. A table row can still fire
+  `StyleTrailingWhitespace`/`StyleHardTab`/etc.; only line-length is exempt.
 - `max_line_length` is a plain parameter — no CLI wiring here (default 100 / `--max-line-length`
   belongs to `section-07-cli`).
 
