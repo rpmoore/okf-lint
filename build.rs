@@ -5,12 +5,24 @@ fn main() {
 
     let git_sha = std::env::var("OKF_LINT_GIT_SHA")
         .ok()
-        .filter(|sha| !sha.is_empty())
+        .and_then(|sha| valid_git_sha(sha.trim()))
         .or_else(git_sha_from_git_rev_parse)
         .or_else(git_sha_from_cargo_vcs_info)
         .unwrap_or_else(|| "unknown".to_string());
 
     println!("cargo:rustc-env=OKF_LINT_GIT_SHA={git_sha}");
+}
+
+// `OKF_LINT_GIT_SHA` can come from outside this build (the `Dockerfile`'s `ARG`, or a
+// caller's shell environment) — unlike the git-derived sources below, its contents
+// aren't guaranteed to be a real commit hash. A stray newline or arbitrary string would
+// flow straight into `run_version`'s single-line `commit: {sha}` output, so only accept
+// values that look like a git object id (40 hex chars for SHA-1, 64 for SHA-256) and
+// fall back to the git-derived sources otherwise.
+fn valid_git_sha(sha: &str) -> Option<String> {
+    let looks_like_sha =
+        matches!(sha.len(), 40 | 64) && sha.chars().all(|c| c.is_ascii_hexdigit());
+    looks_like_sha.then(|| sha.to_string())
 }
 
 // `.git/HEAD` only changes on a branch switch (or detached checkout) — the loose ref

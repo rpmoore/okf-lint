@@ -338,10 +338,11 @@ fn version_command_reports_version_arch_and_commit() {
     let expected_arch_line = format!("arch: {}", std::env::consts::ARCH);
     assert_eq!(lines.next(), Some(expected_arch_line.as_str()));
     // This checkout is a git repo, so build.rs resolves a real commit via `git
-    // rev-parse HEAD` rather than falling back to "unknown" — assert it looks like one
-    // (40 hex chars) rather than pinning the exact value, which changes every commit.
+    // rev-parse HEAD` (or a validated `OKF_LINT_GIT_SHA` override) rather than falling
+    // back to "unknown" — assert it looks like a git object id (40 hex chars for SHA-1,
+    // 64 for SHA-256) rather than pinning the exact value, which changes every commit.
     let commit = lines.next().unwrap().strip_prefix("commit: ").unwrap();
-    assert_eq!(commit.len(), 40);
+    assert!(matches!(commit.len(), 40 | 64));
     assert!(commit.chars().all(|c| c.is_ascii_hexdigit()));
     assert!(lines.next().is_none());
 }
