@@ -1,4 +1,8 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=OKF_LINT_GIT_SHA");
+    println!("cargo:rerun-if-changed=.cargo_vcs_info.json");
+    println!("cargo:rerun-if-changed=.git/HEAD");
+
     let git_sha = std::env::var("OKF_LINT_GIT_SHA")
         .ok()
         .filter(|sha| !sha.is_empty())

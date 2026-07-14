@@ -335,10 +335,8 @@ fn version_command_reports_version_arch_and_commit() {
         lines.next(),
         Some(concat!("okf-lint ", env!("CARGO_PKG_VERSION")))
     );
-    assert_eq!(
-        lines.next(),
-        Some(format!("arch: {}", std::env::consts::ARCH).as_str())
-    );
+    let expected_arch_line = format!("arch: {}", std::env::consts::ARCH);
+    assert_eq!(lines.next(), Some(expected_arch_line.as_str()));
     // This checkout is a git repo, so build.rs resolves a real commit via `git
     // rev-parse HEAD` rather than falling back to "unknown" — assert it looks like one
     // (40 hex chars) rather than pinning the exact value, which changes every commit.

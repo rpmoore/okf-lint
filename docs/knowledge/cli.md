@@ -82,9 +82,10 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   {ARCH}` (`std::env::consts::ARCH`, a compile-time constant reflecting the actual
   target architecture the binary was built for, correct even when cross-compiled/built
   under emulation — see `docs/knowledge/deployment.md`), and `commit: {sha}` (from
-  `env!("OKF_LINT_GIT_SHA")`, set by `build.rs` at compile time — see below). Always
-  exits **0**; uses the same locked-stdout/`writeln!`/`BrokenPipe` handling as
-  `print_diagnostics`, for the same reason (`okf-lint version | head`).
+  `env!("OKF_LINT_GIT_SHA")`, set by `build.rs` at compile time — see below). Uses the
+  same locked-stdout/`writeln!`/`BrokenPipe` handling as `print_diagnostics`, for the
+  same reason (`okf-lint version | head`): exits 0 on success, 1 if stdout is closed
+  early (`BrokenPipe`), or 2 on any other stdout write error.
 
 ## `build.rs`
 
