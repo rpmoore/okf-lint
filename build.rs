@@ -1,7 +1,7 @@
 fn main() {
     println!("cargo:rerun-if-env-changed=OKF_LINT_GIT_SHA");
     println!("cargo:rerun-if-changed=.cargo_vcs_info.json");
-    println!("cargo:rerun-if-changed=.git/HEAD");
+    watch_git_head();
 
     let git_sha = std::env::var("OKF_LINT_GIT_SHA")
         .ok()
@@ -11,6 +11,24 @@ fn main() {
         .unwrap_or_else(|| "unknown".to_string());
 
     println!("cargo:rustc-env=OKF_LINT_GIT_SHA={git_sha}");
+}
+
+// `.git/HEAD` only changes on a branch switch (or detached checkout) — the loose ref
+// file it points to (e.g. `.git/refs/heads/main`) is what actually moves on every local
+// commit or pull, and `.git/packed-refs` is where that same ref can live instead after
+// `git gc`/a fresh clone. Watching only `.git/HEAD` (as an earlier version of this build
+// script did) leaves the embedded commit stale across ordinary commits on the current
+// branch, since Cargo wouldn't know to rerun this script.
+fn watch_git_head() {
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/packed-refs");
+
+    let Ok(head) = std::fs::read_to_string(".git/HEAD") else {
+        return;
+    };
+    if let Some(ref_path) = head.trim().strip_prefix("ref: ") {
+        println!("cargo:rerun-if-changed=.git/{ref_path}");
+    }
 }
 
 fn git_sha_from_git_rev_parse() -> Option<String> {
