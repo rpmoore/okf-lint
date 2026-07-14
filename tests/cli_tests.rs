@@ -317,3 +317,33 @@ fn fmt_nonexistent_path_exits_2_with_stderr_and_empty_stdout() {
         .stderr(predicate::str::is_empty().not())
         .stdout(predicate::str::is_empty());
 }
+
+#[test]
+fn version_command_reports_version_arch_and_commit() {
+    let output = Command::cargo_bin("okf-lint")
+        .unwrap()
+        .arg("version")
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0));
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let mut lines = stdout.lines();
+    assert_eq!(
+        lines.next(),
+        Some(concat!("okf-lint ", env!("CARGO_PKG_VERSION")))
+    );
+    assert_eq!(
+        lines.next(),
+        Some(format!("arch: {}", std::env::consts::ARCH).as_str())
+    );
+    // This checkout is a git repo, so build.rs resolves a real commit via `git
+    // rev-parse HEAD` rather than falling back to "unknown" — assert it looks like one
+    // (40 hex chars) rather than pinning the exact value, which changes every commit.
+    let commit = lines.next().unwrap().strip_prefix("commit: ").unwrap();
+    assert_eq!(commit.len(), 40);
+    assert!(commit.chars().all(|c| c.is_ascii_hexdigit()));
+    assert!(lines.next().is_none());
+}

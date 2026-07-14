@@ -16,7 +16,8 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   `--include-hidden` (bool flag), all used only when `command` is `None`. This keeps
   bare `okf-lint <path>` working exactly as it did before subcommands existed, as an
   implicit `lint`.
-- `Command` (`clap::Subcommand`): `Lint(LintArgs)` and `Fmt(FmtArgs)`.
+- `Command` (`clap::Subcommand`): `Lint(LintArgs)`, `Fmt(FmtArgs)`, and `Version` (no
+  args).
   - `LintArgs` — `path: PathBuf`, `--max-line-length <N>` (default 100),
     `--include-hidden` (bool flag). Identical shape to the pre-subcommand flat `Cli`.
   - `FmtArgs` — `path: PathBuf`, `--max-line-length <N>` (default 100),
@@ -76,6 +77,38 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   `FmtOutcome` to exit codes: `--check` mode exits 0 (no changed files) or 1 (prints
   `would reformat:` lines, writes nothing); default mode fixes files in place then
   exits 0 (no remaining diagnostics) or 1 (prints them via `print_diagnostics`).
+- `run_version() -> ExitCode` (`Some(Command::Version)`): prints three lines —
+  `okf-lint {CARGO_PKG_VERSION}` (from `env!`, i.e. `Cargo.toml`'s `version`), `arch:
+  {ARCH}` (`std::env::consts::ARCH`, a compile-time constant reflecting the actual
+  target architecture the binary was built for, correct even when cross-compiled/built
+  under emulation — see `docs/knowledge/deployment.md`), and `commit: {sha}` (from
+  `env!("OKF_LINT_GIT_SHA")`, set by `build.rs` at compile time — see below). Always
+  exits **0**; uses the same locked-stdout/`writeln!`/`BrokenPipe` handling as
+  `print_diagnostics`, for the same reason (`okf-lint version | head`).
+
+## `build.rs`
+
+Runs at compile time, before `src/main.rs` is built, to resolve the git commit embedded
+in `run_version`'s `commit:` line via `println!("cargo:rustc-env=OKF_LINT_GIT_SHA={sha}")`
+(an env var only `env!` in `main.rs` can see — this is the standard way to bake a
+compile-time value into a Rust binary without a separate crate). Three sources, tried in
+order, since no single one covers every way this crate gets built:
+1. `OKF_LINT_GIT_SHA` env var, if set non-empty — lets the `Dockerfile` inject the sha
+   explicitly (its build context has no `.git`; see `docs/knowledge/deployment.md`).
+2. `git rev-parse HEAD` — works for local `cargo build`/`cargo test`/`cargo install
+   --path .` from this checkout, where `.git` is present.
+3. `.cargo_vcs_info.json`'s `"sha1"` field, hand-parsed via string splitting (no JSON
+   dependency for one field) rather than a full parser — `cargo package`/`cargo
+   publish` writes this file into the tarball with the sha of the commit that was
+   packaged. This is the *only* source that resolves for `cargo install okf-lint` (from
+   crates.io): that build runs from an extracted tarball with no `.git` directory, so
+   source 2 always misses there. Confirmed by building an extracted `cargo package`
+   tarball directly: without this fallback the tarball build always reported `commit:
+   unknown`.
+
+Falls back to the literal string `"unknown"` if none of the three resolve (e.g. building
+from a source tree with no `.git` and no `.cargo_vcs_info.json`, which is unlikely in
+practice but not an error).
 
 ## Tests: `tests/cli_tests.rs`
 
@@ -109,3 +142,11 @@ diagnostic pollutes the assertion.
 
 `tests/cli_tests.rs` is also touched by section-08-integration-tests, which appends a
 whole-bundle `insta`-snapshot test to this same file.
+
+`version_command_reports_version_arch_and_commit` asserts the exact first two lines
+(`okf-lint {env!("CARGO_PKG_VERSION")}` and `arch: {std::env::consts::ARCH}`, both
+computed the same way in the test as in `main.rs` so the assertion doesn't need
+updating on a version bump or when run on a different architecture) and that the third
+line's `commit: ` value is a 40-char hex string — not a pinned sha, since that changes
+every commit, but this checkout has `.git` so `build.rs` never falls back to
+`"unknown"` here.

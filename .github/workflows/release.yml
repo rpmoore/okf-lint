@@ -53,12 +53,16 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: |
             rpmoore/okf-lint:${{ github.sha }}
             rpmoore/okf-lint:latest
 
       - name: Smoke-test Docker image (linux/amd64)
-        run: docker run --rm --platform linux/amd64 "rpmoore/okf-lint:${{ github.sha }}" --help
+        run: |
+          docker run --rm --platform linux/amd64 "rpmoore/okf-lint:${{ github.sha }}" --help
+          docker run --rm --platform linux/amd64 "rpmoore/okf-lint:${{ github.sha }}" version | grep -qF "commit: ${{ github.sha }}"
 
       - name: Build Docker image (linux/arm64)
         uses: docker/build-push-action@v6
@@ -67,12 +71,16 @@ jobs:
           platforms: linux/arm64
           push: false
           load: true
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: |
             rpmoore/okf-lint:${{ github.sha }}
             rpmoore/okf-lint:latest
 
       - name: Smoke-test Docker image (linux/arm64)
-        run: docker run --rm --platform linux/arm64 "rpmoore/okf-lint:${{ github.sha }}" --help
+        run: |
+          docker run --rm --platform linux/arm64 "rpmoore/okf-lint:${{ github.sha }}" --help
+          docker run --rm --platform linux/arm64 "rpmoore/okf-lint:${{ github.sha }}" version | grep -qF "commit: ${{ github.sha }}"
 
       # Everything above this point is validation only — nothing has been
       # pushed or published yet. Only push/publish once all of it passes.
@@ -89,6 +97,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           tags: |
             rpmoore/okf-lint:${{ github.sha }}
             rpmoore/okf-lint:latest

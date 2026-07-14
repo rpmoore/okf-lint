@@ -2,7 +2,9 @@
 
 FROM cgr.dev/chainguard/rust:latest-dev AS builder
 WORKDIR /work
-COPY Cargo.toml Cargo.lock ./
+ARG GIT_SHA=unknown
+ENV OKF_LINT_GIT_SHA=$GIT_SHA
+COPY Cargo.toml Cargo.lock build.rs ./
 COPY src ./src
 ENV RUSTFLAGS="-C target-feature=+crt-static"
 RUN TARGET="$(rustc -vV | sed -n 's/^host: //p')" && \

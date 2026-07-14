@@ -11,8 +11,13 @@ build/ship plumbing, kept separate from the check modules and CLI layer.
 
 Two-stage build, both stages on Chainguard (Wolfi-based, minimal-CVE) images:
 
-1. **`builder`** (`cgr.dev/chainguard/rust:latest-dev`) — has `cargo`/`rustc`. Copies
-   `Cargo.toml`, `Cargo.lock`, and `src/` (nothing else — no `tests/`, no `docs/`, so
+1. **`builder`** (`cgr.dev/chainguard/rust:latest-dev`) — has `cargo`/`rustc`. Takes a
+   `GIT_SHA` build arg (default `unknown`) and exports it as `OKF_LINT_GIT_SHA`, since
+   `build.rs`'s `git rev-parse HEAD` fallback (`docs/knowledge/cli.md`) can't work here
+   — the build context deliberately excludes `.git` (see `.dockerignore` below), so this
+   ARG is the *only* way the container's `okf-lint version` reports the right commit;
+   without it every image would say `commit: unknown`. Copies `Cargo.toml`,
+   `Cargo.lock`, `build.rs`, and `src/` (nothing else — no `tests/`, no `docs/`, so
    changes to those don't bust the build cache), then runs
    `cargo build --release --locked --target "$TARGET"` (`$TARGET` = the host triple from
    `rustc -vV`) with `RUSTFLAGS="-C target-feature=+crt-static"`. `+crt-static`
@@ -62,19 +67,21 @@ crate publish) — see the note below on ordering:
    under emulation, since `okf-lint` images need to run on both Linux (amd64) and Mac
    (arm64/Apple Silicon) hosts. Two separate `docker/build-push-action` steps
    (`platforms: linux/amd64` and `platforms: linux/arm64`, each `push: false, load:
-   true`) build and load each architecture individually into the runner's local Docker
-   daemon — `--load` cannot import a multi-platform manifest list, only one platform at
-   a time — followed by a `docker run --rm --platform <arch> rpmoore/okf-lint:$SHA
-   --help` smoke test per architecture, to confirm the binary actually executes (the
-   arm64 one under QEMU emulation), not just that each build succeeded.
+   true`, and `build-args: GIT_SHA=${{ github.sha }}` so the Dockerfile's `ARG GIT_SHA`
+   above is populated) build and load each architecture individually into the runner's
+   local Docker daemon — `--load` cannot import a multi-platform manifest list, only one
+   platform at a time — followed by two smoke-test commands per architecture: `--help`
+   (confirms the binary executes at all — the arm64 one under QEMU emulation) and
+   `version | grep -qF "commit: ${{ github.sha }}"` (confirms the `GIT_SHA` build-arg
+   actually threaded through to the embedded commit, not just that the build succeeded).
 5. Only once all of the above passes: `docker/login-action` (auth against
    `DOCKERHUB_PUSH`, a Docker Hub personal access token for the `rpmoore` account), then
    a final `docker/build-push-action` with `platforms: linux/amd64,linux/arm64, push:
-   true` — this reuses the BuildKit layer cache from the two validation builds in step
-   4 (same builder instance, same context, so no work is redone) and pushes a single
-   multi-platform manifest list under both the `${{ github.sha }}` and `latest` tags, so
-   `docker pull rpmoore/okf-lint` resolves to the right architecture automatically on
-   either host.
+   true` and the same `build-args: GIT_SHA=${{ github.sha }}` — this reuses the BuildKit
+   layer cache from the two validation builds in step 4 (same builder instance, same
+   context and build args, so no work is redone) and pushes a single multi-platform
+   manifest list under both the `${{ github.sha }}` and `latest` tags, so `docker pull
+   rpmoore/okf-lint` resolves to the right architecture automatically on either host.
 6. `cargo publish --locked` to crates.io, authenticated via `CARGO_REGISTRY_TOKEN` set
    from the `CRATES_API_KEY` repo secret. Deliberately last: crates.io publishes can
    never be undone or reused (only yanked), while a bad Docker Hub push can simply be
