@@ -24,9 +24,12 @@ checks in `okf.rs`/`index_md.rs`/`log_md.rs`.
   single phantom blank one.
 - **`StyleLineLength`**: `line.chars().count() > max_line_length` — Unicode scalar count,
   not byte length, so multi-byte UTF-8 (e.g. `é`) counts as 1 char each. Exempts table rows
-  (`is_table_row`, `pub(crate)` in `style.rs` — any line containing `|`): a table can't be
-  shortened without breaking its column structure, so flagging it would report a violation
-  the user has no reasonable way to fix. `is_table_row` is shared with `style_fix.rs`, which
+  (`is_table_row`, `pub(crate)` in `style.rs`): a table can't be shortened without breaking
+  its column structure, so flagging it would report a violation the user has no reasonable
+  way to fix. `is_table_row` strips inline code spans (`` `...` ``) via `strip_inline_code`
+  before checking for a `|` — a pipe inside backticks (e.g. prose documenting `` `foo | bar` ``)
+  is a literal character, not a table delimiter, and must not blanket-exempt the line. Only
+  a `|` outside of any code span counts. `is_table_row` is shared with `style_fix.rs`, which
   uses the same definition to decide what `fix_style` must leave un-rewrapped — the two stay
   in sync by construction, not by convention.
 - **`StyleTrailingWhitespace`**: line ends with space, tab, or `\r`. The `\r` case is what

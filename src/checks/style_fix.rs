@@ -69,17 +69,21 @@ fn rewrap_overlong_blocks(lines: Vec<String>, max_line_length: usize) -> Vec<Str
             continue;
         }
 
+        // Segment on skip-flag transitions too, not just blank lines: a paragraph
+        // directly adjacent to a skipped line (e.g. right after a closing `---`
+        // frontmatter delimiter, or a heading, with no blank line between) must
+        // still be treated as its own wrappable segment rather than being dragged
+        // into the skip because it shares a blank-line-delimited chunk with it.
         let start = i;
-        while i < lines.len() && !lines[i].trim().is_empty() {
+        let seg_skip = skip[i];
+        while i < lines.len() && !lines[i].trim().is_empty() && skip[i] == seg_skip {
             i += 1;
         }
         let block = &lines[start..i];
-        let block_skip = &skip[start..i];
 
-        let is_rewrap_candidate = !block_skip.iter().any(|&s| s);
         let has_overlong_line = block.iter().any(|l| l.chars().count() > max_line_length);
 
-        if !is_rewrap_candidate || !has_overlong_line {
+        if seg_skip || !has_overlong_line {
             out.extend(block.iter().cloned());
         } else if block.iter().any(|l| list_marker_prefix(l).is_some()) {
             out.extend(wrap_list_block(block, max_line_length));
@@ -332,6 +336,17 @@ mod tests {
         let before = fixture("max_line_length_skip", "before");
         // Nothing should change: heading/table/code/blockquote lines aren't rewrapped.
         assert_eq!(fix_style(&before, MAX, 4), before);
+    }
+
+    #[test]
+    fn paragraph_adjacent_to_skipped_line_is_still_rewrapped() {
+        // A paragraph directly following a skipped line (frontmatter close, heading)
+        // with no blank line between them must still be wrapped on its own — it
+        // shouldn't be dragged into the skip just because it shares a
+        // blank-line-delimited chunk with that line.
+        let before = fixture("max_line_length_adjacent_skip", "before");
+        let after = fixture("max_line_length_adjacent_skip", "after");
+        assert_eq!(fix_style(&before, MAX, 4), after);
     }
 
     #[test]

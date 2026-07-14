@@ -1,15 +1,27 @@
 use crate::lint::LintError;
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
+
+/// True for any entry below `root` (depth > 0) whose name starts with `.` — the root
+/// itself is never treated as hidden, even if its own path is dot-prefixed (e.g. a
+/// tempdir). Used with `filter_entry` so `WalkDir` prunes hidden directories instead
+/// of just skipping their contents one file at a time — this keeps traversal out of
+/// `.git` and similar heavy directories entirely, not just out of the final results.
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry.depth() > 0
+        && entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with('.'))
+}
 
 pub fn collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError> {
     let mut files = Vec::new();
 
-    // No dotfile/dot-directory exclusion: the OKF spec (§9 Conformance) has
-    // no hidden-file exception — "every non-reserved .md file in the tree"
-    // includes ones under dot-prefixed directories. Silently skipping them
-    // would let a non-conformant bundle report as clean.
-    for entry in WalkDir::new(root) {
+    for entry in WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| !is_hidden(e))
+    {
         let entry = entry.map_err(|err| {
             let path = err.path().unwrap_or(root).to_path_buf();
             let source = err
@@ -73,10 +85,10 @@ mod tests {
     }
 
     #[test]
-    fn hidden_files_and_directories_are_included() {
-        // The OKF spec has no hidden-file exception (§9 Conformance: "every
-        // non-reserved .md file in the tree"), so dot-prefixed entries must
-        // still be walked and checked, not silently skipped.
+    fn hidden_files_and_directories_are_excluded() {
+        // Interview Q2 (planning/claude-spec.md §5): hidden files/dirs are skipped
+        // entirely, not just excluded from results — traversal must not descend into
+        // them (e.g. `.git`) at all.
         let root = TempDir::new().unwrap();
         fs::create_dir_all(root.path().join(".hidden_dir")).unwrap();
         fs::write(root.path().join(".hidden_dir/inside.md"), "").unwrap();
@@ -85,14 +97,7 @@ mod tests {
 
         let files = collect_md_files(root.path()).unwrap();
 
-        assert_eq!(
-            files,
-            vec![
-                PathBuf::from(".hidden.md"),
-                PathBuf::from(".hidden_dir/inside.md"),
-                PathBuf::from("visible.md"),
-            ]
-        );
+        assert_eq!(files, vec![PathBuf::from("visible.md")]);
     }
 
     #[test]

@@ -1,1 +1,5 @@
 /target
+
+# Local, machine-specific plugin state (absolute paths, not portable)
+/planning/deep_plan_config.json
+/planning/implementation/deep_implement_config.json

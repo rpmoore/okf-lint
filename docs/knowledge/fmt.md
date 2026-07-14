@@ -24,10 +24,14 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
      exactly what `check_style` flags as trailing whitespace.
   3. **Consecutive blank lines collapsed**: any run of 2+ whitespace-only lines
      collapses to a single empty line.
-  4. **Overlong-line rewrap**: lines are grouped into maximal blocks of contiguous
-     non-blank lines (`compute_skip_flags`). A block is left completely alone —
-     overlong lines included — if any of its lines are frontmatter, fenced code
-     (` ``` `/`~~~`), a heading (`#`), or a table row (`style::is_table_row`, shared
+  4. **Overlong-line rewrap**: lines are grouped into maximal segments of contiguous
+     non-blank lines that share the same skip flag (`compute_skip_flags`) — a segment
+     boundary is also cut wherever the flag changes, not only at blank lines, so a
+     paragraph directly adjacent to a skipped line (e.g. right after a closing `---`
+     frontmatter delimiter or a heading, with no blank line between) is still its own
+     rewrappable segment rather than being dragged into the skip. A segment is left
+     completely alone — overlong lines included — if its lines are frontmatter, fenced
+     code (` ``` `/`~~~`), a heading (`#`), or a table row (`style::is_table_row`, shared
      with `check_style`'s `StyleLineLength` exemption — see `docs/knowledge/style-checks.md`).
      Blockquotes (`>`) are likewise left alone. Everything else *is* rewrapped:
      - **Plain paragraphs** (`wrap_paragraph_block`): the block's lines are joined and
@@ -98,7 +102,9 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
   deliberately over `max_line_length` — byte-for-byte unchanged by `fix_style`),
   `max_line_length_list/{before,after}.md` (mixed bullet/ordered list, hanging-indent
   wrap), `max_line_length_link/{before,after}.md` (a paragraph with a link, the link
-  staying one unsplit token), plus idempotency/no-op checks.
+  staying one unsplit token), `max_line_length_adjacent_skip/{before,after}.md`
+  (paragraphs directly adjacent to a skipped frontmatter/heading line, no blank line
+  between, still get wrapped), plus idempotency/no-op checks.
 - `src/fmt.rs` unit tests cover the same `LintError` cases as `lint_bundle`
   (nonexistent root, root-is-a-file) plus in-place fixing, `--check` leaving files
   untouched, and a clean bundle producing no changed files.

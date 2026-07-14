@@ -3,9 +3,30 @@ use crate::diagnostic::{Diagnostic, Rule};
 /// A table row can't be shortened without breaking its column structure, so
 /// `StyleLineLength` exempts them rather than reporting an unfixable violation.
 /// Shared with `style_fix.rs`, which uses the same definition to decide what
-/// `fix_style` must leave alone.
+/// `fix_style` must leave alone. A `|` inside an inline code span (`` `...` ``)
+/// doesn't count — that's prose using a literal pipe character, not a table
+/// delimiter, so it must not blanket-exempt the line from length checks.
 pub(crate) fn is_table_row(line: &str) -> bool {
-    line.contains('|')
+    strip_inline_code(line).contains('|')
+}
+
+/// Removes the contents of every inline code span (`` `...` ``) from `line`,
+/// keeping everything outside of backticks. An unterminated trailing backtick
+/// span is stripped to the end of the line, since there's no closing tick to
+/// find a boundary at.
+fn strip_inline_code(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut in_code = false;
+    for ch in line.chars() {
+        if ch == '`' {
+            in_code = !in_code;
+            continue;
+        }
+        if !in_code {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Runs the 5 markdown hygiene rules (line length, trailing whitespace, trailing
@@ -300,6 +321,15 @@ mod tests {
         let content = format!("| {} |\n", "a".repeat(101));
         let diags = check_style(&content, MAX);
         assert!(diags.iter().all(|d| d.rule != Rule::StyleLineLength));
+    }
+
+    #[test]
+    fn overlength_prose_line_with_inline_code_pipe_is_not_exempt() {
+        // A `|` inside a code span (e.g. documenting `foo | bar`) is not a table
+        // delimiter — the line must still be flagged as overlong.
+        let content = format!("Some text with a `foo | bar` example {}\n", "a".repeat(80));
+        let diags = check_style(&content, MAX);
+        assert!(diags.iter().any(|d| d.rule == Rule::StyleLineLength));
     }
 
     #[test]

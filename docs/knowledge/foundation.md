@@ -43,10 +43,10 @@ orchestration layer import.
 - `collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError>` —
   recursively collects every `.md` file under `root`, returning root-relative
   paths sorted lexicographically for deterministic diagnostic ordering.
-  Dot-prefixed files/directories are **not** excluded: OKF spec §9
-  (Conformance) has no hidden-file exception ("every non-reserved .md file in
-  the tree"), so silently skipping `.hidden/notes.md`-style paths would let a
-  non-conformant bundle report clean. A practical side effect: pointing the
-  tool at a directory containing a `.git/` will walk it too (harmless —
-  everything not ending in `.md` is filtered out — but adds directory-walk
-  overhead on large repos).
+  Dot-prefixed files/directories below `root` (depth > 0) are excluded via
+  `WalkDir::filter_entry` — per the planning spec's traversal contract
+  (`planning/claude-spec.md` §5, interview Q2), hidden entries like `.git` or
+  `.github` are skipped entirely and never descended into (`filter_entry`
+  prunes them, so this isn't just a post-hoc filter — it avoids walking heavy
+  hidden trees like `.git` at all). `root` itself is never treated as hidden
+  even if its own path is dot-prefixed (e.g. a tempdir in tests).
