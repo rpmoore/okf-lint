@@ -76,7 +76,7 @@ fn run_fmt_command(args: &FmtArgs) -> ExitCode {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
         for path in &outcome.changed_files {
-            if let Err(err) = writeln!(handle, "would reformat: {}", path.display()) {
+            if let Err(err) = writeln!(handle, "would reformat: {}", to_slash_path(path)) {
                 if err.kind() == ErrorKind::BrokenPipe {
                     return ExitCode::from(1);
                 }
@@ -97,6 +97,17 @@ fn run_fmt_command(args: &FmtArgs) -> ExitCode {
     }
 }
 
+/// Renders `path` with forward-slash separators regardless of host OS. The CLI output
+/// contract (and the committed `insta` snapshots) is `/`-separated always, so on
+/// Windows a plain `path.display()` (which emits `\`) would make stdout non-portable
+/// and diverge from the snapshots.
+fn to_slash_path(path: &Path) -> String {
+    path.components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 /// Writes each `{path}:{line}: {message}` diagnostic line to stdout. Returns `Err`
 /// with the exit code the caller should use immediately (broken pipe -> 1, any other
 /// write failure -> 2) instead of continuing to write further diagnostics.
@@ -111,7 +122,7 @@ fn print_diagnostics(diagnostics: &[(PathBuf, Diagnostic)]) -> Result<(), ExitCo
         if let Err(err) = writeln!(
             handle,
             "{}:{}: {}{}",
-            path.display(),
+            to_slash_path(path),
             diagnostic.line,
             diagnostic.message,
             spec_suffix
@@ -124,6 +135,22 @@ fn print_diagnostics(diagnostics: &[(PathBuf, Diagnostic)]) -> Result<(), ExitCo
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_slash_path_joins_components_with_forward_slash() {
+        let path = Path::new("sub").join("nested").join("a.md");
+        assert_eq!(to_slash_path(&path), "sub/nested/a.md");
+    }
+
+    #[test]
+    fn to_slash_path_single_component_is_unchanged() {
+        assert_eq!(to_slash_path(Path::new("a.md")), "a.md");
+    }
 }
 
 fn format_error(err: &LintError) -> String {

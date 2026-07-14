@@ -55,8 +55,11 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   aren't OKF requirements, so there's no spec section to link to. See
   `docs/knowledge/foundation.md` for `Rule::spec_url`.
 - Diagnostics are printed in the order `lint_bundle` returns them (already sorted) — no
-  re-sorting here. `path.display()` is used directly; this relies on the project's
-  Unix-only assumption (paths use `/` natively) rather than special-casing separators.
+  re-sorting here. `to_slash_path(path)` is used instead of `path.display()`: it joins
+  `path.components()` with `/` explicitly, so stdout stays `/`-separated even on
+  Windows (where `Path::display()` would emit `\`), matching the CLI output contract
+  and the committed `insta` snapshots. `run_fmt_command`'s `would reformat: {path}`
+  output (`--check` mode) uses the same helper.
 - Broken pipe handling: writing diagnostics uses `writeln!` on a locked stdout handle
   rather than `println!`, so that when the write fails with `ErrorKind::BrokenPipe`
   (e.g. `okf-lint dir | head`) the process exits cleanly with code 1 instead of
