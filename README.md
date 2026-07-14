@@ -53,6 +53,35 @@ Other flags (available on both the bare/`lint` and `fmt` forms):
 okf-lint path/to/bundle --max-line-length 120 --include-hidden
 ```
 
+## Docker
+
+Images are published to [Docker Hub](https://hub.docker.com/r/rpmoore/okf-lint) as
+multi-platform (`linux/amd64` and `linux/arm64`) builds, tagged `latest` and per-commit
+SHA — `docker pull` resolves the right architecture automatically:
+
+```bash
+docker pull rpmoore/okf-lint
+```
+
+The container's entrypoint *is* the `okf-lint` binary, so it takes the same arguments
+and subcommands as the CLI (see [Usage](#usage) above). Mount the directory you want to
+scan into the container as a volume, then pass that mount path as the argument. To lint
+this project's own OKF docs, which live under `docs/knowledge`, for example:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint /data
+```
+
+`fmt` works the same way:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint fmt /data
+docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint fmt /data --check
+```
+
+If you're only linting (not `fmt`, which writes fixes back), mount read-only with
+`-v "$PWD/docs/knowledge":/data:ro`.
+
 ## License
 
 Apache-2.0, see [LICENSE](LICENSE.md).

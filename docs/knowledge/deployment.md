@@ -39,7 +39,9 @@ Two-stage build, both stages on Chainguard (Wolfi-based, minimal-CVE) images:
 
 `ENTRYPOINT ["/usr/local/bin/okf-lint"]` — the container behaves like the CLI binary
 itself; pass the same arguments documented in `docs/knowledge/cli.md`
-(e.g. `docker run --rm -v "$PWD":/data okf-lint /data`).
+(e.g. `docker run --rm -v "$PWD":/data okf-lint /data`). `README.md`'s "Docker" section
+is the user-facing version of this: pulling `rpmoore/okf-lint` from Docker Hub and
+mounting a docs directory in as a volume to scan (or `fmt`) it.
 
 `.dockerignore` excludes `target/`, `.git/`, `docs/`, `tests/`, `planning/` from the
 build context.
