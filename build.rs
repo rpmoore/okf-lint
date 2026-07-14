@@ -20,8 +20,7 @@ fn main() {
 // values that look like a git object id (40 hex chars for SHA-1, 64 for SHA-256) and
 // fall back to the git-derived sources otherwise.
 fn valid_git_sha(sha: &str) -> Option<String> {
-    let looks_like_sha =
-        matches!(sha.len(), 40 | 64) && sha.chars().all(|c| c.is_ascii_hexdigit());
+    let looks_like_sha = matches!(sha.len(), 40 | 64) && sha.chars().all(|c| c.is_ascii_hexdigit());
     looks_like_sha.then(|| sha.to_string())
 }
 
@@ -38,9 +37,20 @@ fn watch_git_head() {
     let Ok(head) = std::fs::read_to_string(".git/HEAD") else {
         return;
     };
-    if let Some(ref_path) = head.trim().strip_prefix("ref: ") {
+    if let Some(ref_path) = head.trim().strip_prefix("ref: ")
+        && is_normal_ref_path(ref_path)
+    {
         println!("cargo:rerun-if-changed=.git/{ref_path}");
     }
+}
+
+// `.git/HEAD`'s `ref: ` line is meant to hold a path like `refs/heads/main`, but nothing
+// stops it from containing something else (a malformed or hand-edited file). Emitting
+// `cargo:rerun-if-changed=.git/{ref_path}` unchecked would let a `ref_path` like
+// `../../etc/passwd` make Cargo watch a path outside `.git/` entirely — restrict it to
+// the normal `refs/...` namespace with no `..` traversal before trusting it.
+fn is_normal_ref_path(ref_path: &str) -> bool {
+    ref_path.starts_with("refs/") && ref_path.split('/').all(|part| part != "..")
 }
 
 fn git_sha_from_git_rev_parse() -> Option<String> {

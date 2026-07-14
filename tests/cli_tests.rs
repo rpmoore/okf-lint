@@ -337,12 +337,21 @@ fn version_command_reports_version_arch_and_commit() {
     );
     let expected_arch_line = format!("arch: {}", std::env::consts::ARCH);
     assert_eq!(lines.next(), Some(expected_arch_line.as_str()));
-    // This checkout is a git repo, so build.rs resolves a real commit via `git
-    // rev-parse HEAD` (or a validated `OKF_LINT_GIT_SHA` override) rather than falling
-    // back to "unknown" — assert it looks like a git object id (40 hex chars for SHA-1,
-    // 64 for SHA-256) rather than pinning the exact value, which changes every commit.
     let commit = lines.next().unwrap().strip_prefix("commit: ").unwrap();
-    assert!(matches!(commit.len(), 40 | 64));
-    assert!(commit.chars().all(|c| c.is_ascii_hexdigit()));
+    // build.rs only has a real commit to embed if it had `.git` or a packaged
+    // `.cargo_vcs_info.json` to read at compile time (e.g. not a plain source archive
+    // with neither) — everywhere else it falls back to "unknown". Assert against
+    // whichever build.rs would actually have produced, rather than assuming this
+    // checkout always has `.git` (a `cargo test` run from a source archive wouldn't).
+    let git_metadata_available = std::path::Path::new(".git").exists()
+        || std::path::Path::new(".cargo_vcs_info.json").exists();
+    if git_metadata_available {
+        // Assert it looks like a git object id (40 hex chars for SHA-1, 64 for
+        // SHA-256) rather than pinning the exact value, which changes every commit.
+        assert!(matches!(commit.len(), 40 | 64));
+        assert!(commit.chars().all(|c| c.is_ascii_hexdigit()));
+    } else {
+        assert_eq!(commit, "unknown");
+    }
     assert!(lines.next().is_none());
 }

@@ -126,6 +126,14 @@ ref file it points to is what actually advances — and `.git/packed-refs` cover
 where that ref lives there instead (e.g. right after a fresh clone or `git gc`). Without
 these directives Cargo can reuse a cached build-script run and embed a stale commit.
 
+`is_normal_ref_path` gates the ref-file directive: the path after `.git/HEAD`'s `ref: `
+prefix is untrusted file content (however unlikely to be tampered with in practice), so
+it must start with `refs/` and contain no `..` component before being appended onto
+`.git/` and handed to `cargo:rerun-if-changed` — otherwise a crafted `ref: ../../etc/passwd`
+would make Cargo watch an arbitrary path outside `.git/` entirely. A `ref_path` that
+fails this check is silently skipped (only the `.git/HEAD` and `.git/packed-refs`
+directives above still apply), rather than erroring the build.
+
 ## Tests: `tests/cli_tests.rs`
 
 Integration tests using `assert_cmd`/`predicates` against the compiled binary (not
