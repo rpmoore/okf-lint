@@ -53,6 +53,50 @@ Other flags (available on both the bare/`lint` and `fmt` forms):
 okf-lint path/to/bundle --max-line-length 120 --include-hidden
 ```
 
+## Docker
+
+Images are published to [Docker Hub](https://hub.docker.com/r/rpmoore/okf-lint) as
+multi-platform (`linux/amd64` and `linux/arm64`) builds — `docker pull` resolves the
+right architecture for your machine automatically:
+
+```bash
+docker pull rpmoore/okf-lint
+```
+
+Every release is tagged both `latest` and with the full commit SHA it was built from;
+pull a specific SHA tag to pin an exact build instead of tracking `latest`:
+
+```bash
+docker pull rpmoore/okf-lint:<commit-sha>
+```
+
+The container's entrypoint *is* the `okf-lint` binary, so it takes the same arguments
+and subcommands as the CLI (see [Usage](#usage) above). Mount the directory you want to
+scan into the container as a volume, then pass that mount path as the argument. To lint
+this project's own OKF docs, which live under `docs/knowledge`, for example:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint /data
+```
+
+`fmt --check` works the same way, since like `lint` it only reads:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data rpmoore/okf-lint fmt /data --check
+```
+
+Writing fixes back with plain `fmt` is different: the image runs as a non-root user
+(uid `65532`, inherited from the `cgr.dev/chainguard/static` base), so it typically
+can't write to a bind-mounted host directory owned by your own user — add
+`--user "$(id -u):$(id -g)"` so the container writes as you instead:
+
+```bash
+docker run --rm -v "$PWD/docs/knowledge":/data --user "$(id -u):$(id -g)" rpmoore/okf-lint fmt /data
+```
+
+If you're only linting (not writing fixes back with `fmt`), mount read-only with
+`-v "$PWD/docs/knowledge":/data:ro`.
+
 ## License
 
 Apache-2.0, see [LICENSE](LICENSE.md).
