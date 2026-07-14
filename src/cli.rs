@@ -20,6 +20,9 @@ pub struct Cli {
 pub enum Command {
     Lint(LintArgs),
     Fmt(FmtArgs),
+    /// Print the crate version, target architecture, and git commit this binary was
+    /// built from.
+    Version,
 }
 
 #[derive(clap::Args)]

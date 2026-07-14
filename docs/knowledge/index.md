@@ -17,3 +17,7 @@
   place, with a `--check` report-only mode
 * [Integration tests](integration-tests.md) - whole-pipeline regression guard exercising
   classification, all check modules, and cross-file sort order together
+* [Deployment](deployment.md) - the multistage `Dockerfile` that packages `okf-lint` as
+  a static binary in a Chainguard distroless image
+* [Dev tooling](dev-tooling.md) - the `justfile`'s `fmt` recipe: clippy, `cargo fmt`,
+  then dogfooding the `fmt` subcommand against `docs/knowledge`

@@ -1,6 +1,6 @@
 [package]
 name = "okf-lint"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A CLI linter that validates markdown documentation bundles against the Open Knowledge Format (OKF) specification, plus a fixed set of markdown hygiene rules."
 license-file = "LICENSE.md"

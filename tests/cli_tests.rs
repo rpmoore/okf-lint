@@ -317,3 +317,37 @@ fn fmt_nonexistent_path_exits_2_with_stderr_and_empty_stdout() {
         .stderr(predicate::str::is_empty().not())
         .stdout(predicate::str::is_empty());
 }
+
+#[test]
+fn version_command_reports_version_arch_and_commit() {
+    let output = Command::cargo_bin("okf-lint")
+        .unwrap()
+        .arg("version")
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0));
+    assert!(output.stderr.is_empty());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let mut lines = stdout.lines();
+    assert_eq!(
+        lines.next(),
+        Some(concat!("okf-lint ", env!("CARGO_PKG_VERSION")))
+    );
+    let expected_arch_line = format!("arch: {}", std::env::consts::ARCH);
+    assert_eq!(lines.next(), Some(expected_arch_line.as_str()));
+    let commit = lines.next().unwrap().strip_prefix("commit: ").unwrap();
+    // Whether build.rs resolves a real commit depends on things this test can't
+    // reliably observe at its own run time (whether `.git` existed *and* the `git`
+    // binary was on `PATH` *at compile time*, or a packaged `.cargo_vcs_info.json`
+    // existed) — trying to predict that from the current filesystem state duplicates
+    // build.rs's own fallback logic and drifts out of sync with it. Assert the actual
+    // invariant instead: it's either a real git object id (40 hex chars for SHA-1, 64
+    // for SHA-256, not a pinned value since that changes every commit) or the literal
+    // "unknown" fallback sentinel — never anything else.
+    let looks_like_git_sha =
+        matches!(commit.len(), 40 | 64) && commit.chars().all(|c| c.is_ascii_hexdigit());
+    assert!(looks_like_git_sha || commit == "unknown");
+    assert!(lines.next().is_none());
+}

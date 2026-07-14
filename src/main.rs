@@ -24,6 +24,7 @@ fn main() -> ExitCode {
             args.include_hidden,
         ),
         Some(Command::Fmt(args)) => run_fmt_command(&args),
+        Some(Command::Version) => run_version(),
         None => match cli.path {
             Some(path) => run_lint(&path, cli.max_line_length as usize, cli.include_hidden),
             None => {
@@ -95,6 +96,29 @@ fn run_fmt_command(args: &FmtArgs) -> ExitCode {
         Ok(()) => ExitCode::from(1),
         Err(code) => code,
     }
+}
+
+/// Prints the crate version (from `Cargo.toml`), the target architecture this binary
+/// was compiled for, and the git commit `build.rs` embedded at compile time.
+fn run_version() -> ExitCode {
+    let lines = [
+        format!("okf-lint {}", env!("CARGO_PKG_VERSION")),
+        format!("arch: {}", std::env::consts::ARCH),
+        format!("commit: {}", env!("OKF_LINT_GIT_SHA")),
+    ];
+
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    for line in lines {
+        if let Err(err) = writeln!(handle, "{line}") {
+            if err.kind() == ErrorKind::BrokenPipe {
+                return ExitCode::from(1);
+            }
+            eprintln!("error: failed to write to stdout: {err}");
+            return ExitCode::from(2);
+        }
+    }
+    ExitCode::from(0)
 }
 
 /// Renders `path` with forward-slash separators regardless of host OS. The CLI output
