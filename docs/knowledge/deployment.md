@@ -36,16 +36,17 @@ Two-stage build, both stages on Chainguard (Wolfi-based, minimal-CVE) images:
    statically-linked binary is copied in, to `/usr/local/bin/okf-lint`. This is why the
    builder stage must produce a static binary — the final stage has nothing to
    dynamically link against. Runs as the image's non-root default user, uid `65532`
-   (`docker inspect --format '{{.Config.User}}'` confirms this; there's no explicit
-   `USER` instruction in this `Dockerfile` — it's inherited from the base image).
+   (`docker inspect --format '{{.Config.User}}' cgr.dev/chainguard/static:latest`
+   confirms this; there's no explicit `USER` instruction in this `Dockerfile` — it's
+   inherited from the base image).
 
 `ENTRYPOINT ["/usr/local/bin/okf-lint"]` — the container behaves like the CLI binary
 itself; pass the same arguments documented in `docs/knowledge/cli.md`
-(e.g. `docker run --rm -v "$PWD":/data okf-lint /data`). Since the container isn't
-root, a bind-mounted host directory (typically owned by the host user, not uid `65532`)
-is readable but not writable to it by default — fine for `lint`/`fmt --check`, but plain
-`fmt` (which writes fixes back) needs `--user "$(id -u):$(id -g)"` added so the
-container writes as the host user instead. `README.md`'s "Docker" section is the
+(e.g. `docker run --rm -v "$PWD":/data rpmoore/okf-lint /data`). Since the container
+isn't root, a bind-mounted host directory (typically owned by the host user, not uid
+`65532`) is readable but not writable to it by default — fine for `lint`/`fmt --check`,
+but plain `fmt` (which writes fixes back) needs `--user "$(id -u):$(id -g)"` added so
+the container writes as the host user instead. `README.md`'s "Docker" section is the
 user-facing version of this: pulling `rpmoore/okf-lint` from Docker Hub and mounting a
 docs directory in as a volume to scan (or `fmt`) it.
 

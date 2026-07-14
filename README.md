@@ -56,11 +56,18 @@ okf-lint path/to/bundle --max-line-length 120 --include-hidden
 ## Docker
 
 Images are published to [Docker Hub](https://hub.docker.com/r/rpmoore/okf-lint) as
-multi-platform (`linux/amd64` and `linux/arm64`) builds, tagged `latest` and per-commit
-SHA — `docker pull` resolves the right architecture automatically:
+multi-platform (`linux/amd64` and `linux/arm64`) builds — `docker pull` resolves the
+right architecture for your machine automatically:
 
 ```bash
 docker pull rpmoore/okf-lint
+```
+
+Every release is tagged both `latest` and with the full commit SHA it was built from;
+pull a specific SHA tag to pin an exact build instead of tracking `latest`:
+
+```bash
+docker pull rpmoore/okf-lint:<commit-sha>
 ```
 
 The container's entrypoint *is* the `okf-lint` binary, so it takes the same arguments
