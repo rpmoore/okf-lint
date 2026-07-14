@@ -57,15 +57,24 @@ crate publish) — see the note below on ordering:
 3. **`cargo publish --dry-run --locked`** — validates crate packaging (manifest,
    `license-file`, `readme`, included files) against crates.io's rules without
    publishing anything.
-4. **Docker build validation** — `docker/build-push-action` with `push: false, load:
-   true` builds the image and loads it into the runner's local Docker daemon (not
-   Docker Hub) under both target tags, then a smoke-test step runs
-   `docker run --rm rpmoore/okf-lint:$SHA --help` against it to confirm the binary
-   actually executes in the distroless image, not just that the build succeeded.
+4. **Docker build validation, both target platforms** — `docker/setup-qemu-action`
+   registers binfmt handlers on the (amd64) runner so it can build and run `linux/arm64`
+   under emulation, since `okf-lint` images need to run on both Linux (amd64) and Mac
+   (arm64/Apple Silicon) hosts. Two separate `docker/build-push-action` steps
+   (`platforms: linux/amd64` and `platforms: linux/arm64`, each `push: false, load:
+   true`) build and load each architecture individually into the runner's local Docker
+   daemon — `--load` cannot import a multi-platform manifest list, only one platform at
+   a time — followed by a `docker run --rm --platform <arch> rpmoore/okf-lint:$SHA
+   --help` smoke test per architecture, to confirm the binary actually executes (the
+   arm64 one under QEMU emulation), not just that each build succeeded.
 5. Only once all of the above passes: `docker/login-action` (auth against
    `DOCKERHUB_PUSH`, a Docker Hub personal access token for the `rpmoore` account), then
-   `docker push` for both the `${{ github.sha }}` and `latest` tags — pushing the exact
-   image already validated in step 4, not a rebuild.
+   a final `docker/build-push-action` with `platforms: linux/amd64,linux/arm64, push:
+   true` — this reuses the BuildKit layer cache from the two validation builds in step
+   4 (same builder instance, same context, so no work is redone) and pushes a single
+   multi-platform manifest list under both the `${{ github.sha }}` and `latest` tags, so
+   `docker pull rpmoore/okf-lint` resolves to the right architecture automatically on
+   either host.
 6. `cargo publish --locked` to crates.io, authenticated via `CARGO_REGISTRY_TOKEN` set
    from the `CRATES_API_KEY` repo secret. Deliberately last: crates.io publishes can
    never be undone or reused (only yanked), while a bad Docker Hub push can simply be

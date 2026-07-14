@@ -40,21 +40,39 @@ jobs:
       - name: Dry-run crates.io publish
         run: cargo publish --dry-run --locked
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build Docker image (linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64
           push: false
           load: true
           tags: |
             rpmoore/okf-lint:${{ github.sha }}
             rpmoore/okf-lint:latest
 
-      - name: Smoke-test Docker image
-        run: docker run --rm "rpmoore/okf-lint:${{ github.sha }}" --help
+      - name: Smoke-test Docker image (linux/amd64)
+        run: docker run --rm --platform linux/amd64 "rpmoore/okf-lint:${{ github.sha }}" --help
+
+      - name: Build Docker image (linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: |
+            rpmoore/okf-lint:${{ github.sha }}
+            rpmoore/okf-lint:latest
+
+      - name: Smoke-test Docker image (linux/arm64)
+        run: docker run --rm --platform linux/arm64 "rpmoore/okf-lint:${{ github.sha }}" --help
 
       # Everything above this point is validation only — nothing has been
       # pushed or published yet. Only push/publish once all of it passes.
@@ -65,10 +83,15 @@ jobs:
           username: rpmoore
           password: ${{ secrets.DOCKERHUB_PUSH }}
 
-      - name: Push Docker image
-        run: |
-          docker push "rpmoore/okf-lint:${{ github.sha }}"
-          docker push rpmoore/okf-lint:latest
+      - name: Build and push Docker image (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            rpmoore/okf-lint:${{ github.sha }}
+            rpmoore/okf-lint:latest
 
       - name: Publish to crates.io
         env:
