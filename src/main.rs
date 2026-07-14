@@ -18,10 +18,14 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Command::Lint(args)) => run_lint(&args.path, args.max_line_length as usize),
+        Some(Command::Lint(args)) => run_lint(
+            &args.path,
+            args.max_line_length as usize,
+            args.include_hidden,
+        ),
         Some(Command::Fmt(args)) => run_fmt_command(&args),
         None => match cli.path {
-            Some(path) => run_lint(&path, cli.max_line_length as usize),
+            Some(path) => run_lint(&path, cli.max_line_length as usize, cli.include_hidden),
             None => {
                 eprintln!("error: the following required argument was not provided: <PATH>");
                 ExitCode::from(2)
@@ -30,8 +34,8 @@ fn main() -> ExitCode {
     }
 }
 
-fn run_lint(path: &Path, max_line_length: usize) -> ExitCode {
-    let diagnostics = match lint::lint_bundle(path, max_line_length) {
+fn run_lint(path: &Path, max_line_length: usize, include_hidden: bool) -> ExitCode {
+    let diagnostics = match lint::lint_bundle(path, max_line_length, include_hidden) {
         Ok(diagnostics) => diagnostics,
         Err(err) => {
             eprintln!("error: {}", format_error(&err));
@@ -55,6 +59,7 @@ fn run_fmt_command(args: &FmtArgs) -> ExitCode {
         args.max_line_length as usize,
         args.tab_width as usize,
         args.check,
+        args.include_hidden,
     ) {
         Ok(outcome) => outcome,
         Err(err) => {

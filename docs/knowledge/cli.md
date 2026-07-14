@@ -12,15 +12,23 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
 ## `src/cli.rs`
 
 - `Cli` (`clap::Parser`) — `#[command(subcommand)] command: Option<Command>`, plus a
-  flat `path: Option<PathBuf>` and `--max-line-length <N>` (`u32`, default 100) used
-  only when `command` is `None`. This keeps bare `okf-lint <path>` working exactly as
-  it did before subcommands existed, as an implicit `lint`.
+  flat `path: Option<PathBuf>`, `--max-line-length <N>` (`u32`, default 100), and
+  `--include-hidden` (bool flag), all used only when `command` is `None`. This keeps
+  bare `okf-lint <path>` working exactly as it did before subcommands existed, as an
+  implicit `lint`.
 - `Command` (`clap::Subcommand`): `Lint(LintArgs)` and `Fmt(FmtArgs)`.
-  - `LintArgs` — `path: PathBuf`, `--max-line-length <N>` (default 100). Identical
-    shape to the pre-subcommand flat `Cli`.
+  - `LintArgs` — `path: PathBuf`, `--max-line-length <N>` (default 100),
+    `--include-hidden` (bool flag). Identical shape to the pre-subcommand flat `Cli`.
   - `FmtArgs` — `path: PathBuf`, `--max-line-length <N>` (default 100),
     `--tab-width <N>` (`u32`, default 4, spaces per hard tab when expanding),
-    `--check` (bool flag, report-only — see `docs/knowledge/fmt.md`).
+    `--check` (bool flag, report-only — see `docs/knowledge/fmt.md`),
+    `--include-hidden` (bool flag).
+- `--include-hidden` defaults to `false` on every surface (top-level, `lint`, `fmt`):
+  dot-prefixed files/directories (e.g. `.git`, `.github`) are pruned during traversal
+  unless the flag is passed, per `walk::collect_md_files`'s `include_hidden` parameter
+  (`docs/knowledge/foundation.md`). Threaded straight through to
+  `lint::lint_bundle`/`fmt::run_fmt` — no CLI-layer logic beyond passing the bool
+  along.
 
 ## `src/main.rs`
 
@@ -28,8 +36,8 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   `None` (with `cli.path` present) both call `run_lint`; `None` with no `cli.path`
   prints a usage error to stderr and exits **2**; `Some(Command::Fmt(args))` calls
   `run_fmt_command`.
-- `run_lint(path, max_line_length) -> ExitCode`:
-  1. `lint::lint_bundle(path, max_line_length)`.
+- `run_lint(path, max_line_length, include_hidden) -> ExitCode`:
+  1. `lint::lint_bundle(path, max_line_length, include_hidden)`.
   2. On `Err(LintError)`: `format_error` renders a human-readable one-line message to
      stderr, exit **2**. Returns immediately — no stdout is written on this path, even
      though `lint_bundle` itself already guarantees no partial results on `Err`.
@@ -85,6 +93,11 @@ fixing; `okf-lint fmt <path> --check` reports `would reformat:` without writing;
 `fmt` on a clean bundle and on a nonexistent path mirror `lint`'s exit codes. `fmt`
 tests write to `tempfile::TempDir` copies rather than the checked-in fixtures, since
 `fmt` mutates files in place.
+
+`--include-hidden` coverage: a bundle with a violation only inside a `.hidden/`
+directory exits 0 by default (hidden dir never walked) and exits 1 with the
+diagnostic on stdout when `--include-hidden` is passed; the `fmt` equivalent asserts
+`--include-hidden` fixes a style violation inside `.hidden/` in place.
 
 The `--max-line-length` override test uses a dedicated fixture,
 `tests/fixtures/cli/max_line_length_override/fail.md` — frontmatter + heading + a single

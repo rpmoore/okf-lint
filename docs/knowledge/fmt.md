@@ -59,15 +59,19 @@ couldn't safely fix) as residual diagnostics after fixing what it can.
 ## `src/fmt.rs`
 
 - `FmtOutcome { changed_files: Vec<PathBuf>, remaining: Vec<(PathBuf, Diagnostic)> }`.
-- `run_fmt(root, max_line_length, tab_width, check) -> Result<FmtOutcome, LintError>` —
-  reuses `walk::collect_md_files` and the same read/UTF-8-validate logic as
-  `lint::lint_bundle`, so a bundle root that doesn't exist, isn't a directory, or
-  contains non-UTF-8 fails with the same `LintError` variants `lint` would produce.
-  For each file: compute `fix_style(&content, ...)`; if it differs from the original,
-  the file is recorded in `changed_files`, and — unless `check` is `true` — written
-  back with `std::fs::write` (files that don't need a fix are never touched, to avoid
-  needless mtime churn). After the fix pass, when `check` is `false`,
-  `lint::lint_bundle` is re-run against `root` (files on disk are now fixed) to
+- `run_fmt(root, max_line_length, tab_width, check, include_hidden) ->
+  Result<FmtOutcome, LintError>` — reuses `walk::collect_md_files` and the same
+  read/UTF-8-validate logic as `lint::lint_bundle`, so a bundle root that doesn't
+  exist, isn't a directory, or contains non-UTF-8 fails with the same `LintError`
+  variants `lint` would produce. `include_hidden` (the CLI's `--include-hidden` flag,
+  `docs/knowledge/cli.md`) is passed straight through to both `collect_md_files` and
+  the re-lint call below, so hidden files are fixed/reported consistently with
+  whether they were walked in the first place. For each file: compute
+  `fix_style(&content, ...)`; if it differs from the original, the file is recorded
+  in `changed_files`, and — unless `check` is `true` — written back with
+  `std::fs::write` (files that don't need a fix are never touched, to avoid needless
+  mtime churn). After the fix pass, when `check` is `false`, `lint::lint_bundle` is
+  re-run against `root` (files on disk are now fixed) to
   populate `remaining` with whatever `fmt` couldn't or shouldn't fix — overlong lines
   inside frontmatter/code/headings/blockquotes (table rows don't appear here at all,
   since `check_style` itself exempts them) and all structural OKF rules. When `check`

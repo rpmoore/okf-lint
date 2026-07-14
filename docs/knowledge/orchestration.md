@@ -17,12 +17,14 @@ turns a bundle root path into the final, sorted diagnostic list.
   that merely contains "index" or "log" as a substring (`reindex.md`, `catalog.md`) falls through to
   `Concept`. `is_root` is true iff the relative path's parent is `None` or an empty component (i.e.
   the file is directly at the bundle root, not `sub/index.md`).
-- `lint_bundle(root: &Path, max_line_length: usize) -> Result<Vec<(PathBuf, Diagnostic)>,
-  LintError>`:
+- `lint_bundle(root: &Path, max_line_length: usize, include_hidden: bool) ->
+  Result<Vec<(PathBuf, Diagnostic)>, LintError>`:
   1. `std::fs::metadata(root)` once — maps any error (including "doesn't exist") to `PathNotFound`,
      then checks `is_dir()` for `NotADirectory`. A single syscall instead of separate
      `exists()`/`is_dir()` calls, avoiding a TOCTOU window between them.
-  2. `collect_md_files(root)` (from `walk.rs`) — propagates any `LintError` as-is.
+  2. `collect_md_files(root, include_hidden)` (from `walk.rs`) — propagates any `LintError` as-is.
+     `include_hidden` (`docs/knowledge/cli.md`'s `--include-hidden` flag) is passed straight
+     through, unchanged, to control whether dot-prefixed entries are walked.
   3. For each relative path: read the joined full path as bytes, then `String::from_utf8`. Non-UTF-8
      content maps to `InvalidUtf8(full_path)`; any other read failure maps to `Io { path: full_path,
      source }`. Either aborts the whole run immediately via `?` — no partial diagnostics are

@@ -48,6 +48,7 @@ fn sort_diagnostics(results: &mut [(PathBuf, Diagnostic)]) {
 pub fn lint_bundle(
     root: &Path,
     max_line_length: usize,
+    include_hidden: bool,
 ) -> Result<Vec<(PathBuf, Diagnostic)>, LintError> {
     let metadata =
         std::fs::metadata(root).map_err(|_| LintError::PathNotFound(root.to_path_buf()))?;
@@ -55,7 +56,7 @@ pub fn lint_bundle(
         return Err(LintError::NotADirectory(root.to_path_buf()));
     }
 
-    let relative_paths = collect_md_files(root)?;
+    let relative_paths = collect_md_files(root, include_hidden)?;
 
     let mut results = Vec::new();
     for relative in &relative_paths {
@@ -119,7 +120,7 @@ mod tests {
     #[test]
     fn lint_bundle_root_not_found() {
         let missing = Path::new("/nonexistent/does/not/exist/okf-lint-test");
-        let result = lint_bundle(missing, 100);
+        let result = lint_bundle(missing, 100, false);
         assert!(matches!(result, Err(LintError::PathNotFound(_))));
     }
 
@@ -129,7 +130,7 @@ mod tests {
         let file_path = dir.path().join("not_a_dir.md");
         fs::write(&file_path, "hello").unwrap();
 
-        let result = lint_bundle(&file_path, 100);
+        let result = lint_bundle(&file_path, 100, false);
         assert!(matches!(result, Err(LintError::NotADirectory(_))));
     }
 
@@ -140,7 +141,7 @@ mod tests {
         // 0x80 alone is not valid UTF-8.
         fs::write(dir.path().join("bad.md"), [0x80, 0x81]).unwrap();
 
-        let result = lint_bundle(dir.path(), 100);
+        let result = lint_bundle(dir.path(), 100, false);
         assert!(matches!(result, Err(LintError::InvalidUtf8(_))));
     }
 
@@ -150,7 +151,7 @@ mod tests {
         // Bad date heading (structural, OkfLogDateHeading) AND a hard tab (style).
         fs::write(dir.path().join("log.md"), "## not-a-date\n\tindented\n").unwrap();
 
-        let results = lint_bundle(dir.path(), 100).unwrap();
+        let results = lint_bundle(dir.path(), 100, false).unwrap();
 
         assert!(
             results
@@ -179,7 +180,7 @@ mod tests {
         // Plain concept file with no frontmatter.
         fs::write(dir.path().join("notes.md"), "# Notes\n").unwrap();
 
-        let results = lint_bundle(dir.path(), 100).unwrap();
+        let results = lint_bundle(dir.path(), 100, false).unwrap();
 
         let root_index_diag = results
             .iter()
@@ -229,7 +230,7 @@ mod tests {
         // codepath that wasn't actually exercised.
         let actually_blocked = fs::read(&blocked).is_err();
 
-        let result = lint_bundle(dir.path(), 100);
+        let result = lint_bundle(dir.path(), 100, false);
 
         fs::set_permissions(&blocked, fs::Permissions::from_mode(0o644)).unwrap();
 
@@ -244,12 +245,30 @@ mod tests {
     }
 
     #[test]
+    fn lint_bundle_include_hidden_toggles_hidden_file_diagnostics() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir_all(dir.path().join(".hidden")).unwrap();
+        fs::write(dir.path().join(".hidden/notes.md"), "no frontmatter\n").unwrap();
+
+        let default_results = lint_bundle(dir.path(), 100, false).unwrap();
+        assert!(default_results.is_empty());
+
+        let included_results = lint_bundle(dir.path(), 100, true).unwrap();
+        assert!(
+            included_results
+                .iter()
+                .any(|(path, d)| *path == PathBuf::from(".hidden/notes.md")
+                    && d.rule == Rule::OkfMissingFrontmatter)
+        );
+    }
+
+    #[test]
     fn lint_bundle_results_are_sorted_across_files() {
         let dir = TempDir::new().unwrap();
         fs::write(dir.path().join("z.md"), "no frontmatter\n").unwrap();
         fs::write(dir.path().join("a.md"), "no frontmatter\n").unwrap();
 
-        let results = lint_bundle(dir.path(), 100).unwrap();
+        let results = lint_bundle(dir.path(), 100, false).unwrap();
 
         assert!(results.len() >= 2);
         assert_eq!(results[0].0, PathBuf::from("a.md"));

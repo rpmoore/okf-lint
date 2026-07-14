@@ -126,6 +126,60 @@ fn integration_bundle_exits_1() {
 }
 
 #[test]
+fn hidden_directory_is_ignored_by_default() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".hidden")).unwrap();
+    std::fs::write(dir.path().join(".hidden/notes.md"), "no frontmatter\n").unwrap();
+
+    Command::cargo_bin("okf-lint")
+        .unwrap()
+        .arg(dir.path().to_str().unwrap())
+        .assert()
+        .code(0)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn include_hidden_flag_walks_hidden_directory() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".hidden")).unwrap();
+    std::fs::write(dir.path().join(".hidden/notes.md"), "no frontmatter\n").unwrap();
+
+    Command::cargo_bin("okf-lint")
+        .unwrap()
+        .args([dir.path().to_str().unwrap(), "--include-hidden"])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "missing or invalid YAML frontmatter",
+        ))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn fmt_include_hidden_flag_fixes_hidden_file() {
+    let dir = TempDir::new().unwrap();
+    std::fs::create_dir_all(dir.path().join(".hidden")).unwrap();
+    std::fs::write(
+        dir.path().join(".hidden/notes.md"),
+        "---\ntype: concept\n---\nline with trailing space \n",
+    )
+    .unwrap();
+
+    Command::cargo_bin("okf-lint")
+        .unwrap()
+        .args(["fmt", dir.path().to_str().unwrap(), "--include-hidden"])
+        .assert()
+        .code(0)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+
+    let fixed = std::fs::read_to_string(dir.path().join(".hidden/notes.md")).unwrap();
+    assert_eq!(fixed, "---\ntype: concept\n---\nline with trailing space\n");
+}
+
+#[test]
 fn bare_path_still_works_without_subcommand() {
     // Regression check for the Cli restructure: `okf-lint <path>` (no `lint`/`fmt`
     // subcommand) must behave exactly like it did before subcommands existed.

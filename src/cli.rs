@@ -10,6 +10,10 @@ pub struct Cli {
     pub path: Option<PathBuf>,
     #[arg(long, default_value_t = 100)]
     pub max_line_length: u32,
+    /// Walk into hidden (dot-prefixed) files and directories, e.g. `.git`. Off by
+    /// default.
+    #[arg(long)]
+    pub include_hidden: bool,
 }
 
 #[derive(clap::Subcommand)]
@@ -23,6 +27,10 @@ pub struct LintArgs {
     pub path: PathBuf,
     #[arg(long, default_value_t = 100)]
     pub max_line_length: u32,
+    /// Walk into hidden (dot-prefixed) files and directories, e.g. `.git`. Off by
+    /// default.
+    #[arg(long)]
+    pub include_hidden: bool,
 }
 
 #[derive(clap::Args)]
@@ -34,4 +42,8 @@ pub struct FmtArgs {
     pub tab_width: u32,
     #[arg(long)]
     pub check: bool,
+    /// Walk into hidden (dot-prefixed) files and directories, e.g. `.git`. Off by
+    /// default.
+    #[arg(long)]
+    pub include_hidden: bool,
 }

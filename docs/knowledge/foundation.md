@@ -40,13 +40,17 @@ orchestration layer import.
 
 ## `src/walk.rs`
 
-- `collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError>` —
-  recursively collects every `.md` file under `root`, returning root-relative
-  paths sorted lexicographically for deterministic diagnostic ordering.
-  Dot-prefixed files/directories below `root` (depth > 0) are excluded via
-  `WalkDir::filter_entry` — per the planning spec's traversal contract
-  (`planning/claude-spec.md` §5, interview Q2), hidden entries like `.git` or
-  `.github` are skipped entirely and never descended into (`filter_entry`
-  prunes them, so this isn't just a post-hoc filter — it avoids walking heavy
-  hidden trees like `.git` at all). `root` itself is never treated as hidden
-  even if its own path is dot-prefixed (e.g. a tempdir in tests).
+- `collect_md_files(root: &Path, include_hidden: bool) -> Result<Vec<PathBuf>, LintError>`
+  — recursively collects every `.md` file under `root`, returning root-relative
+  paths sorted lexicographically for deterministic diagnostic ordering. By
+  default (`include_hidden = false`), dot-prefixed files/directories below
+  `root` (depth > 0) are excluded via `WalkDir::filter_entry` — per the
+  planning spec's traversal contract (`planning/claude-spec.md` §5, interview
+  Q2), hidden entries like `.git` or `.github` are skipped entirely and never
+  descended into (`filter_entry` prunes them, so this isn't just a post-hoc
+  filter — it avoids walking heavy hidden trees like `.git` at all). `root`
+  itself is never treated as hidden even if its own path is dot-prefixed
+  (e.g. a tempdir in tests). Passing `include_hidden = true` disables the
+  prune, walking hidden entries too — surfaced as the CLI's
+  `--include-hidden` flag (`docs/knowledge/cli.md`), threaded through
+  `lint_bundle` and `run_fmt` down to this function.

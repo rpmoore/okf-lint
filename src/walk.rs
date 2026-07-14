@@ -4,9 +4,7 @@ use walkdir::{DirEntry, WalkDir};
 
 /// True for any entry below `root` (depth > 0) whose name starts with `.` — the root
 /// itself is never treated as hidden, even if its own path is dot-prefixed (e.g. a
-/// tempdir). Used with `filter_entry` so `WalkDir` prunes hidden directories instead
-/// of just skipping their contents one file at a time — this keeps traversal out of
-/// `.git` and similar heavy directories entirely, not just out of the final results.
+/// tempdir).
 fn is_hidden(entry: &DirEntry) -> bool {
     entry.depth() > 0
         && entry
@@ -15,12 +13,17 @@ fn is_hidden(entry: &DirEntry) -> bool {
             .is_some_and(|name| name.starts_with('.'))
 }
 
-pub fn collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError> {
+/// Collects every `.md` file under `root`. By default, hidden entries (dot-prefixed
+/// directories/files below `root`) are pruned via `filter_entry` — so `WalkDir` never
+/// descends into them at all (not just excluded from results), keeping traversal out
+/// of `.git` and similar heavy directories. Passing `include_hidden = true` disables
+/// the prune and walks hidden entries too.
+pub fn collect_md_files(root: &Path, include_hidden: bool) -> Result<Vec<PathBuf>, LintError> {
     let mut files = Vec::new();
 
     for entry in WalkDir::new(root)
         .into_iter()
-        .filter_entry(|e| !is_hidden(e))
+        .filter_entry(|e| include_hidden || !is_hidden(e))
     {
         let entry = entry.map_err(|err| {
             let path = err.path().unwrap_or(root).to_path_buf();
@@ -68,7 +71,7 @@ mod tests {
         );
         fs::write(root.path().join("a.md"), "").unwrap();
 
-        let files = collect_md_files(root.path()).unwrap();
+        let files = collect_md_files(root.path(), false).unwrap();
 
         assert_eq!(files, vec![PathBuf::from("a.md")]);
     }
@@ -79,7 +82,7 @@ mod tests {
         fs::write(root.path().join("a.md"), "").unwrap();
         fs::write(root.path().join("b.txt"), "").unwrap();
 
-        let files = collect_md_files(root.path()).unwrap();
+        let files = collect_md_files(root.path(), false).unwrap();
 
         assert_eq!(files, vec![PathBuf::from("a.md")]);
     }
@@ -95,9 +98,29 @@ mod tests {
         fs::write(root.path().join(".hidden.md"), "").unwrap();
         fs::write(root.path().join("visible.md"), "").unwrap();
 
-        let files = collect_md_files(root.path()).unwrap();
+        let files = collect_md_files(root.path(), false).unwrap();
 
         assert_eq!(files, vec![PathBuf::from("visible.md")]);
+    }
+
+    #[test]
+    fn include_hidden_true_walks_hidden_files_and_directories() {
+        let root = TempDir::new().unwrap();
+        fs::create_dir_all(root.path().join(".hidden_dir")).unwrap();
+        fs::write(root.path().join(".hidden_dir/inside.md"), "").unwrap();
+        fs::write(root.path().join(".hidden.md"), "").unwrap();
+        fs::write(root.path().join("visible.md"), "").unwrap();
+
+        let files = collect_md_files(root.path(), true).unwrap();
+
+        assert_eq!(
+            files,
+            vec![
+                PathBuf::from(".hidden.md"),
+                PathBuf::from(".hidden_dir/inside.md"),
+                PathBuf::from("visible.md"),
+            ]
+        );
     }
 
     #[test]
@@ -106,7 +129,7 @@ mod tests {
         fs::create_dir_all(root.path().join("sub")).unwrap();
         fs::write(root.path().join("sub/nested.md"), "").unwrap();
 
-        let files = collect_md_files(root.path()).unwrap();
+        let files = collect_md_files(root.path(), false).unwrap();
 
         assert_eq!(files, vec![PathBuf::from("sub/nested.md")]);
         assert!(!files[0].is_absolute());
@@ -119,7 +142,7 @@ mod tests {
         fs::write(root.path().join("a.md"), "").unwrap();
         fs::write(root.path().join("m.md"), "").unwrap();
 
-        let files = collect_md_files(root.path()).unwrap();
+        let files = collect_md_files(root.path(), false).unwrap();
 
         assert_eq!(
             files,
@@ -149,7 +172,7 @@ mod tests {
         // codepath that wasn't actually exercised.
         let actually_blocked = fs::read_dir(&blocked).is_err();
 
-        let result = collect_md_files(root.path());
+        let result = collect_md_files(root.path(), false);
 
         fs::set_permissions(&blocked, fs::Permissions::from_mode(0o755)).unwrap();
 
