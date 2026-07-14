@@ -53,40 +53,38 @@ push/publish steps, since neither Docker Hub nor crates.io supports a rollback (
 publishes are permanent; a bad Docker Hub push is merely undesirable, not atomic with the
 crate publish) — see the note below on ordering:
 
-1. **Version gate** — compares `github.event.release.tag_name` against the version in
-   `Cargo.toml` (via `cargo metadata`), requiring `tag == "v$cargo_version"`. Fails the
-   job with `::error::` before any build/publish work happens if they don't match —
-   this is what stops a release being tagged without first bumping `Cargo.toml`. Pattern
-   taken from [rpmoore/rdns's release workflow](https://github.com/rpmoore/rdns/blob/main/.github/workflows/release.yml).
+1. **Version gate** — compares `github.event.release.tag_name` against the version in `Cargo.toml`
+   (via `cargo metadata`), requiring `tag == "v$cargo_version"`. Fails the job with `::error::`
+   before any build/publish work happens if they don't match — this is what stops a release being
+   tagged without first bumping `Cargo.toml`. Pattern taken from rpmoore/rdns's
+   [release workflow](https://github.com/rpmoore/rdns/blob/main/.github/workflows/release.yml)
+   .
 2. Build (`cargo build --release --locked`) and test (`cargo test --release --locked`).
-3. **`cargo publish --dry-run --locked`** — validates crate packaging (manifest,
-   `license-file`, `readme`, included files) against crates.io's rules without
-   publishing anything.
-4. **Docker build validation, both target platforms** — `docker/setup-qemu-action`
-   registers binfmt handlers on the (amd64) runner so it can build and run `linux/arm64`
-   under emulation, since `okf-lint` images need to run on both Linux (amd64) and Mac
-   (arm64/Apple Silicon) hosts. Two separate `docker/build-push-action` steps
-   (`platforms: linux/amd64` and `platforms: linux/arm64`, each `push: false, load:
-   true`, and `build-args: GIT_SHA=${{ github.sha }}` so the Dockerfile's `ARG GIT_SHA`
-   above is populated) build and load each architecture individually into the runner's
-   local Docker daemon — `--load` cannot import a multi-platform manifest list, only one
-   platform at a time — followed by two smoke-test commands per architecture: `--help`
-   (confirms the binary executes at all — the arm64 one under QEMU emulation) and
-   `version | grep -qF "commit: ${{ github.sha }}"` (confirms the `GIT_SHA` build-arg
-   actually threaded through to the embedded commit, not just that the build succeeded).
-5. Only once all of the above passes: `docker/login-action` (auth against
-   `DOCKERHUB_PUSH`, a Docker Hub personal access token for the `rpmoore` account), then
-   a final `docker/build-push-action` with `platforms: linux/amd64,linux/arm64, push:
-   true` and the same `build-args: GIT_SHA=${{ github.sha }}` — this reuses the BuildKit
-   layer cache from the two validation builds in step 4 (same builder instance, same
-   context and build args, so no work is redone) and pushes a single multi-platform
-   manifest list under both the `${{ github.sha }}` and `latest` tags, so `docker pull
-   rpmoore/okf-lint` resolves to the right architecture automatically on either host.
-6. `cargo publish --locked` to crates.io, authenticated via `CARGO_REGISTRY_TOKEN` set
-   from the `CRATES_API_KEY` repo secret. Deliberately last: crates.io publishes can
-   never be undone or reused (only yanked), while a bad Docker Hub push can simply be
-   overwritten by re-running the job. Keeping it last means a failure anywhere earlier
-   never leaves an unpublishable crate version behind.
+3. **`cargo publish --dry-run --locked`** — validates crate packaging (manifest, `license-file`,
+   `readme`, included files) against crates.io's rules without publishing anything.
+4. **Docker build validation, both target platforms** — `docker/setup-qemu-action` registers binfmt
+   handlers on the (amd64) runner so it can build and run `linux/arm64` under emulation, since
+   `okf-lint` images need to run on both Linux (amd64) and Mac (arm64/Apple Silicon) hosts. Two
+   separate `docker/build-push-action` steps (`platforms: linux/amd64` and `platforms: linux/arm64`,
+   each `push: false, load: true`, and `build-args: GIT_SHA=${{ github.sha }}` so the Dockerfile's
+   `ARG GIT_SHA` above is populated) build and load each architecture individually into the runner's
+   local Docker daemon — `--load` cannot import a multi-platform manifest list, only one platform at
+   a time — followed by two smoke-test commands per architecture: `--help` (confirms the binary
+   executes at all — the arm64 one under QEMU emulation) and `version | grep -qF "commit: ${{
+   github.sha }}"` (confirms the `GIT_SHA` build-arg actually threaded through to the embedded
+   commit, not just that the build succeeded).
+5. Only once all of the above passes: `docker/login-action` (auth against `DOCKERHUB_PUSH`, a Docker
+   Hub personal access token for the `rpmoore` account), then a final `docker/build-push-action`
+   with `platforms: linux/amd64,linux/arm64, push: true` and the same `build-args: GIT_SHA=${{
+   github.sha }}` — this reuses the BuildKit layer cache from the two validation builds in step 4
+   (same builder instance, same context and build args, so no work is redone) and pushes a single
+   multi-platform manifest list under both the `${{ github.sha }}` and `latest` tags, so `docker
+   pull rpmoore/okf-lint` resolves to the right architecture automatically on either host.
+6. `cargo publish --locked` to crates.io, authenticated via `CARGO_REGISTRY_TOKEN` set from the
+   `CRATES_API_KEY` repo secret. Deliberately last: crates.io publishes can never be undone or
+   reused (only yanked), while a bad Docker Hub push can simply be overwritten by re-running the
+   job. Keeping it last means a failure anywhere earlier never leaves an unpublishable crate version
+   behind.
 
 This ordering doesn't make the two pushes atomic — no distributed transaction spans
 Docker Hub and crates.io — but it minimizes the chance of a split state and makes the
