@@ -3,25 +3,52 @@ use chrono::NaiveDate;
 
 /// Runs OKF conformance rule 5 (OkfLogDateHeading) against the content of a
 /// log.md file: every level-2 (`##`) heading must be a real calendar date in
-/// YYYY-MM-DD format. Headings at other levels are not inspected.
+/// YYYY-MM-DD format, and valid dates must appear newest-first (§7). Headings
+/// at other levels are not inspected.
 pub fn check_log(content: &str) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let mut last_valid_date: Option<NaiveDate> = None;
 
     for (idx, line) in content.split('\n').enumerate() {
         let Some(text) = line.strip_prefix("## ") else {
             continue;
         };
+        let line_no = idx + 1;
 
-        if !is_date_shape(text) || NaiveDate::parse_from_str(text, "%Y-%m-%d").is_err() {
-            diagnostics.push(Diagnostic {
-                line: idx + 1,
-                rule: Rule::OkfLogDateHeading,
-                message: "log.md heading is not a valid YYYY-MM-DD date".to_string(),
-            });
+        if !is_date_shape(text) {
+            diagnostics.push(invalid_date_diagnostic(line_no));
+            continue;
+        }
+
+        match NaiveDate::parse_from_str(text, "%Y-%m-%d") {
+            Err(_) => diagnostics.push(invalid_date_diagnostic(line_no)),
+            Ok(date) => {
+                // A shape/calendar-invalid heading in between two valid dates
+                // is already flagged on its own line above and doesn't reset
+                // ordering tracking — the two valid dates on either side of
+                // it must still be compared against each other.
+                if last_valid_date.is_some_and(|last| date > last) {
+                    diagnostics.push(Diagnostic {
+                        line: line_no,
+                        rule: Rule::OkfLogDateHeading,
+                        message: "log.md date headings must be in newest-first (descending) order"
+                            .to_string(),
+                    });
+                }
+                last_valid_date = Some(date);
+            }
         }
     }
 
     diagnostics
+}
+
+fn invalid_date_diagnostic(line: usize) -> Diagnostic {
+    Diagnostic {
+        line,
+        rule: Rule::OkfLogDateHeading,
+        message: "log.md heading is not a valid YYYY-MM-DD date".to_string(),
+    }
 }
 
 fn is_date_shape(text: &str) -> bool {
@@ -99,7 +126,9 @@ mod tests {
 
     #[test]
     fn multiple_headings_emit_one_diagnostic_per_invalid_heading() {
-        let content = "## 2026-01-01\n## Not A Date\n\n## 2026-02-30\n## 2026-03-03\n";
+        // Valid dates (2026-03-03, 2026-01-01) are kept newest-first here so
+        // this test only exercises per-heading date-validity, not ordering.
+        let content = "## 2026-03-03\n## Not A Date\n\n## 2026-02-30\n## 2026-01-01\n";
         assert_eq!(
             check_log(content),
             vec![
@@ -120,5 +149,48 @@ mod tests {
     #[test]
     fn no_level_2_headings_has_no_diagnostics() {
         assert_eq!(check_log("# Title\n\n### Sub\n\nbody text\n"), vec![]);
+    }
+
+    #[test]
+    fn out_of_order_valid_dates_emit_order_violation() {
+        assert_eq!(
+            check_log("## 2026-01-01\n\n## 2026-02-01\n"),
+            vec![Diagnostic {
+                line: 3,
+                rule: Rule::OkfLogDateHeading,
+                message: "log.md date headings must be in newest-first (descending) order"
+                    .to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn newest_first_order_has_no_diagnostics() {
+        assert_eq!(check_log("## 2026-02-01\n\n## 2026-01-01\n"), vec![]);
+    }
+
+    #[test]
+    fn equal_consecutive_dates_are_not_an_order_violation() {
+        assert_eq!(check_log("## 2026-01-01\n\n## 2026-01-01\n"), vec![]);
+    }
+
+    #[test]
+    fn invalid_date_between_valid_dates_does_not_reset_order_tracking() {
+        assert_eq!(
+            check_log("## 2026-01-01\n## Not A Date\n## 2026-02-01\n"),
+            vec![
+                Diagnostic {
+                    line: 2,
+                    rule: Rule::OkfLogDateHeading,
+                    message: "log.md heading is not a valid YYYY-MM-DD date".to_string(),
+                },
+                Diagnostic {
+                    line: 3,
+                    rule: Rule::OkfLogDateHeading,
+                    message: "log.md date headings must be in newest-first (descending) order"
+                        .to_string(),
+                },
+            ]
+        );
     }
 }

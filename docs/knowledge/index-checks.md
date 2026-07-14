@@ -25,6 +25,14 @@ OKF conformance rules for `index.md` files.
     heading (`^#+ `), a list item (`^[*+-] `), or — only while
     `in_list_item` is true — a continuation line indented by 2+ spaces.
     Anything else is one diagnostic per violating line.
+  - A second, monotonic `has_seen_heading` boolean additionally enforces
+    spec §6's "each grouping concepts under a heading": a list item is
+    syntactically valid (`in_list_item` still becomes `true`, so
+    continuation lines under it aren't separately flagged) but gets its own
+    diagnostic ("index.md list item appears before any section heading") if
+    no heading has appeared anywhere above it yet. Once any heading is seen,
+    it stays seen for the rest of the file — sections don't need a fresh
+    heading immediately before every list, only *some* heading earlier.
   - **Judgment call**: when frontmatter is `Unclosed`, rule 4 is skipped
     entirely — `FrontmatterResult::Unclosed` carries no `body_start_line`,
     so there's no well-defined body to scan; the rest of the file is

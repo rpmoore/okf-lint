@@ -36,6 +36,18 @@
     "section-05-style-checks": {
       "status": "complete",
       "commit_hash": "f2b61d2"
+    },
+    "section-06-orchestration": {
+      "status": "complete",
+      "commit_hash": "fb6ad0d"
+    },
+    "section-07-cli": {
+      "status": "complete",
+      "commit_hash": "1d54151"
+    },
+    "section-08-integration-tests": {
+      "status": "complete",
+      "commit_hash": "c75c7aa"
     }
   },
   "pre_commit": {

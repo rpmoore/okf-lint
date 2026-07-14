@@ -13,5 +13,7 @@
   which dispatches to and merges output from all four check modules
 * [CLI](cli.md) - argument parsing, stdout/stderr formatting, and exit-code mapping for
   the `okf-lint` binary
+* [fmt](fmt.md) - the `fmt` subcommand: auto-corrects mechanical style violations in
+  place, with a `--check` report-only mode
 * [Integration tests](integration-tests.md) - whole-pipeline regression guard exercising
   classification, all check modules, and cross-file sort order together

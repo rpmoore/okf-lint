@@ -44,7 +44,9 @@ pub fn check_index(content: &str, is_root: bool) -> Vec<Diagnostic> {
 
 fn root_frontmatter_ok(yaml_text: &str) -> bool {
     match serde_yaml_ng::from_str::<Value>(yaml_text) {
-        Ok(Value::Mapping(mapping)) => mapping.iter().all(|(k, _)| k.as_str() == Some("okf_version")),
+        Ok(Value::Mapping(mapping)) => mapping
+            .iter()
+            .all(|(k, _)| k.as_str() == Some("okf_version")),
         Ok(Value::Null) => true,
         _ => false,
     }
@@ -68,6 +70,11 @@ fn nonroot_frontmatter_diagnostic() -> Diagnostic {
 
 fn scan_body(content: &str, start_line: usize, diagnostics: &mut Vec<Diagnostic>) {
     let mut in_list_item = false;
+    // Spec §6: "The body uses one or more sections, each grouping concepts
+    // under a heading" — a list item with no heading anywhere above it isn't
+    // grouped under anything, so it's a violation even though it's
+    // syntactically a valid list item.
+    let mut has_seen_heading = false;
     for (idx, raw_line) in content.split('\n').enumerate() {
         let line_no = idx + 1;
         if line_no < start_line {
@@ -82,7 +89,15 @@ fn scan_body(content: &str, start_line: usize, diagnostics: &mut Vec<Diagnostic>
 
         if is_heading(line) {
             in_list_item = false;
+            has_seen_heading = true;
         } else if is_list_item(line) {
+            if !has_seen_heading {
+                diagnostics.push(Diagnostic {
+                    line: line_no,
+                    rule: Rule::OkfIndexBodyStructure,
+                    message: "index.md list item appears before any section heading".to_string(),
+                });
+            }
             in_list_item = true;
         } else if in_list_item && leading_space_count(line) >= 2 {
             // Continuation line: valid, in_list_item stays true.
@@ -132,8 +147,10 @@ mod tests {
     const FAIL_ROOT_EXTRA_KEY: &str = include_str!(
         "../../tests/fixtures/okf/index_frontmatter_placement/fail_root_extra_key/index.md"
     );
-    const BODY_PASS: &str = include_str!("../../tests/fixtures/okf/index_body_structure/pass/pass.md");
-    const BODY_FAIL: &str = include_str!("../../tests/fixtures/okf/index_body_structure/fail/fail.md");
+    const BODY_PASS: &str =
+        include_str!("../../tests/fixtures/okf/index_body_structure/pass/pass.md");
+    const BODY_FAIL: &str =
+        include_str!("../../tests/fixtures/okf/index_body_structure/fail/fail.md");
 
     #[test]
     fn pass_root_has_no_frontmatter_placement_diagnostics() {
@@ -274,6 +291,38 @@ mod tests {
                 message: "index.md body line is not a heading or list item".to_string(),
             }]
         );
+    }
+
+    #[test]
+    fn list_item_before_any_heading_is_violation() {
+        let content = "- Item\n";
+        assert_eq!(
+            check_index(content, true),
+            vec![Diagnostic {
+                line: 1,
+                rule: Rule::OkfIndexBodyStructure,
+                message: "index.md list item appears before any section heading".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn list_item_before_heading_is_flagged_even_if_heading_follows_later() {
+        let content = "- Item\n\n# Title\n\n- Item two\n";
+        assert_eq!(
+            check_index(content, true),
+            vec![Diagnostic {
+                line: 1,
+                rule: Rule::OkfIndexBodyStructure,
+                message: "index.md list item appears before any section heading".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn list_item_after_heading_has_no_diagnostics() {
+        let content = "# Title\n\n- Item\n";
+        assert_eq!(check_index(content, true), vec![]);
     }
 
     #[test]

@@ -8,9 +8,18 @@ OKF conformance rule for `log.md` files.
 
 ## `src/checks/log_md.rs`
 
-- `check_log(content: &str) -> Vec<Diagnostic>` — implements one rule:
-  - **`OkfLogDateHeading`**: every level-2 (`##`) heading must be a real calendar date in
+- `check_log(content: &str) -> Vec<Diagnostic>` — implements one rule (two checks, both under
+  `Rule::OkfLogDateHeading`):
+  - **Date validity**: every level-2 (`##`) heading must be a real calendar date in
     `YYYY-MM-DD` format. Headings at other levels (`#`, `###`, ...) are not inspected at all.
+  - **Newest-first ordering** (spec §7: "a flat list of date-grouped entries, newest first"):
+    a running `last_valid_date: Option<NaiveDate>` is updated after every calendar-valid
+    heading; if the next valid date is *strictly greater* (i.e. more recent) than the last one
+    seen, that's an order violation — "log.md date headings must be in newest-first
+    (descending) order". Equal consecutive dates are allowed (multiple entries same day).
+    Shape/calendar-invalid headings are skipped for ordering purposes — they're already
+    flagged on their own line — and don't reset `last_valid_date`, so the valid dates on
+    either side of a bad one are still compared to each other.
 - Scans the *whole* content, unlike `index.md`'s rule 4 — there's no frontmatter/body offset
   here, since `log.md` has no frontmatter handling in this linter.
 - No `regex` crate dependency in this project, so both patterns are hand-rolled:

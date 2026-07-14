@@ -5,20 +5,11 @@ use walkdir::WalkDir;
 pub fn collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError> {
     let mut files = Vec::new();
 
-    // Only exclude dotfiles/dot-directories *within* the tree — the root
-    // itself is not subject to this rule (its name is whatever the caller
-    // passed in, e.g. a tempdir prefixed with '.', and should still be
-    // walked).
-    let walker = WalkDir::new(root).into_iter().filter_entry(|entry| {
-        entry.depth() == 0
-            || entry
-                .file_name()
-                .to_str()
-                .map(|name| !name.starts_with('.'))
-                .unwrap_or(true)
-    });
-
-    for entry in walker {
+    // No dotfile/dot-directory exclusion: the OKF spec (§9 Conformance) has
+    // no hidden-file exception — "every non-reserved .md file in the tree"
+    // includes ones under dot-prefixed directories. Silently skipping them
+    // would let a non-conformant bundle report as clean.
+    for entry in WalkDir::new(root) {
         let entry = entry.map_err(|err| {
             let path = err.path().unwrap_or(root).to_path_buf();
             let source = err
@@ -53,10 +44,8 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn dot_prefixed_root_itself_is_still_walked() {
-        // tempfile::TempDir defaults to a '.'-prefixed directory name; the
-        // dotfile-exclusion rule must apply only to entries *within* the
-        // tree, not to the root path itself.
+    fn dot_prefixed_root_itself_is_walked() {
+        // tempfile::TempDir defaults to a '.'-prefixed directory name.
         let root = TempDir::new().unwrap();
         assert!(
             root.path()
@@ -84,16 +73,26 @@ mod tests {
     }
 
     #[test]
-    fn dot_directories_are_excluded() {
+    fn hidden_files_and_directories_are_included() {
+        // The OKF spec has no hidden-file exception (§9 Conformance: "every
+        // non-reserved .md file in the tree"), so dot-prefixed entries must
+        // still be walked and checked, not silently skipped.
         let root = TempDir::new().unwrap();
-        fs::create_dir_all(root.path().join(".git")).unwrap();
-        fs::write(root.path().join(".git/inside.md"), "").unwrap();
+        fs::create_dir_all(root.path().join(".hidden_dir")).unwrap();
+        fs::write(root.path().join(".hidden_dir/inside.md"), "").unwrap();
         fs::write(root.path().join(".hidden.md"), "").unwrap();
         fs::write(root.path().join("visible.md"), "").unwrap();
 
         let files = collect_md_files(root.path()).unwrap();
 
-        assert_eq!(files, vec![PathBuf::from("visible.md")]);
+        assert_eq!(
+            files,
+            vec![
+                PathBuf::from(".hidden.md"),
+                PathBuf::from(".hidden_dir/inside.md"),
+                PathBuf::from("visible.md"),
+            ]
+        );
     }
 
     #[test]

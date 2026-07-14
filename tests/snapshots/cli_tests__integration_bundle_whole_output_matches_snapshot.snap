@@ -3,6 +3,6 @@ source: tests/cli_tests.rs
 expression: stdout
 ---
 concept-a.md:7: line has trailing whitespace
-concept-b.md:1: missing or invalid YAML frontmatter
-log.md:7: log.md heading is not a valid YYYY-MM-DD date
-sub/index.md:5: index.md body line is not a heading or list item
+concept-b.md:1: missing or invalid YAML frontmatter (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#41-frontmatter)
+log.md:7: log.md heading is not a valid YYYY-MM-DD date (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#7-log-files-optional)
+sub/index.md:5: index.md body line is not a heading or list item (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#6-index-files)

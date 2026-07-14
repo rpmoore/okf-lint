@@ -253,7 +253,11 @@ mod tests {
         let content = "foo\tbar\t\n";
         let diags = check_style(content, MAX);
         assert!(diags.iter().any(|d| d.rule == Rule::StyleHardTab));
-        assert!(diags.iter().any(|d| d.rule == Rule::StyleTrailingWhitespace));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.rule == Rule::StyleTrailingWhitespace)
+        );
     }
 
     #[test]
@@ -263,7 +267,11 @@ mod tests {
         let content = "content\n\n\n";
         let diags = check_style(content, MAX);
         assert!(diags.iter().any(|d| d.rule == Rule::StyleTrailingNewline));
-        assert!(diags.iter().any(|d| d.rule == Rule::StyleConsecutiveBlankLines));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.rule == Rule::StyleConsecutiveBlankLines)
+        );
     }
 
     #[test]
@@ -271,6 +279,10 @@ mod tests {
         let content = format!("{} \n", "a".repeat(101));
         let diags = check_style(&content, MAX);
         assert!(diags.iter().any(|d| d.rule == Rule::StyleLineLength));
-        assert!(diags.iter().any(|d| d.rule == Rule::StyleTrailingWhitespace));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.rule == Rule::StyleTrailingWhitespace)
+        );
     }
 }

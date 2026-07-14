@@ -27,7 +27,9 @@ enum FileKind {
 fn classify(relative_path: &Path) -> FileKind {
     match relative_path.file_name().and_then(|name| name.to_str()) {
         Some("index.md") => FileKind::Index {
-            is_root: relative_path.parent().is_none_or(|p| p.as_os_str().is_empty()),
+            is_root: relative_path
+                .parent()
+                .is_none_or(|p| p.as_os_str().is_empty()),
         },
         Some("log.md") => FileKind::Log,
         _ => FileKind::Concept,
@@ -47,8 +49,8 @@ pub fn lint_bundle(
     root: &Path,
     max_line_length: usize,
 ) -> Result<Vec<(PathBuf, Diagnostic)>, LintError> {
-    let metadata = std::fs::metadata(root)
-        .map_err(|_| LintError::PathNotFound(root.to_path_buf()))?;
+    let metadata =
+        std::fs::metadata(root).map_err(|_| LintError::PathNotFound(root.to_path_buf()))?;
     if !metadata.is_dir() {
         return Err(LintError::NotADirectory(root.to_path_buf()));
     }
