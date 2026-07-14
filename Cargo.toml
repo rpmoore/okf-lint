@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 description = "A CLI linter that validates markdown documentation bundles against the Open Knowledge Format (OKF) specification, plus a fixed set of markdown hygiene rules."
 license = "Apache-2.0"
+authors = ["Ryan Moore <ryan.moore@greyrocksoft.com>"]
+repository = "https://github.com/rpmoore/okf-lint"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
