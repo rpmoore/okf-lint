@@ -171,6 +171,11 @@ whole-bundle `insta`-snapshot test to this same file.
 (`okf-lint {env!("CARGO_PKG_VERSION")}` and `arch: {std::env::consts::ARCH}`, both
 computed the same way in the test as in `main.rs` so the assertion doesn't need
 updating on a version bump or when run on a different architecture) and that the third
-line's `commit: ` value is a 40-char hex string — not a pinned sha, since that changes
-every commit, but this checkout has `.git` so `build.rs` never falls back to
-`"unknown"` here.
+line's `commit: ` value is *either* a git object id (40 hex chars for SHA-1, 64 for
+SHA-256 — not a pinned sha, since that changes every commit) *or* the literal fallback
+`"unknown"`. It deliberately doesn't try to predict which one from the test's own
+filesystem state (e.g. whether `.git` exists at test-run time): whether `build.rs`
+resolved a real commit depends on things only observable at *compile* time (`.git`
+presence and the `git` binary being on `PATH` then, or a packaged
+`.cargo_vcs_info.json` — see `build.rs` above), so re-deriving that here would just
+duplicate `build.rs`'s own fallback logic and risk drifting out of sync with it.

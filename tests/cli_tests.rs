@@ -338,20 +338,16 @@ fn version_command_reports_version_arch_and_commit() {
     let expected_arch_line = format!("arch: {}", std::env::consts::ARCH);
     assert_eq!(lines.next(), Some(expected_arch_line.as_str()));
     let commit = lines.next().unwrap().strip_prefix("commit: ").unwrap();
-    // build.rs only has a real commit to embed if it had `.git` or a packaged
-    // `.cargo_vcs_info.json` to read at compile time (e.g. not a plain source archive
-    // with neither) — everywhere else it falls back to "unknown". Assert against
-    // whichever build.rs would actually have produced, rather than assuming this
-    // checkout always has `.git` (a `cargo test` run from a source archive wouldn't).
-    let git_metadata_available = std::path::Path::new(".git").exists()
-        || std::path::Path::new(".cargo_vcs_info.json").exists();
-    if git_metadata_available {
-        // Assert it looks like a git object id (40 hex chars for SHA-1, 64 for
-        // SHA-256) rather than pinning the exact value, which changes every commit.
-        assert!(matches!(commit.len(), 40 | 64));
-        assert!(commit.chars().all(|c| c.is_ascii_hexdigit()));
-    } else {
-        assert_eq!(commit, "unknown");
-    }
+    // Whether build.rs resolves a real commit depends on things this test can't
+    // reliably observe at its own run time (whether `.git` existed *and* the `git`
+    // binary was on `PATH` *at compile time*, or a packaged `.cargo_vcs_info.json`
+    // existed) — trying to predict that from the current filesystem state duplicates
+    // build.rs's own fallback logic and drifts out of sync with it. Assert the actual
+    // invariant instead: it's either a real git object id (40 hex chars for SHA-1, 64
+    // for SHA-256, not a pinned value since that changes every commit) or the literal
+    // "unknown" fallback sentinel — never anything else.
+    let looks_like_git_sha =
+        matches!(commit.len(), 40 | 64) && commit.chars().all(|c| c.is_ascii_hexdigit());
+    assert!(looks_like_git_sha || commit == "unknown");
     assert!(lines.next().is_none());
 }
