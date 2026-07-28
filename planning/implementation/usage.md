@@ -1,8 +1,9 @@
 # Usage Guide: okf-lint
 
 A Rust CLI that recursively lints every `.md` file in an OKF (Open Knowledge Format)
-bundle against 5 OKF v0.1 conformance rules, 6 OKF v0.2 optional-field format checks, and
-5 generic markdown-hygiene rules, emitting compiler-style diagnostics for CI use.
+bundle against 5 core OKF conformance rules (§11 of the spec, unchanged between v0.1
+and v0.2), 6 OKF v0.2 optional-field format checks, and 5 generic markdown-hygiene
+rules, emitting compiler-style diagnostics for CI use.
 
 ## Quick Start
 

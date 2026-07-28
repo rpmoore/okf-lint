@@ -22,19 +22,18 @@ OKF conformance rule for `log.md` files.
     either side of a bad one are still compared to each other.
 - Scans the *whole* content, unlike `index.md`'s rule 4 — there's no frontmatter/body offset
   here, since `log.md` has no frontmatter handling in this linter.
-- No `regex` crate dependency in this project, so both patterns are hand-rolled:
-  - The `^## (.*)$` heading match is `line.strip_prefix("## ")`. This correctly excludes `#
-    text` and `### text`/deeper — in both cases the third byte isn't a space, so the prefix
-    strip fails and the line is skipped entirely (never falls through to date-validating a
-    level-1/3+ heading).
-  - The `^\d{4}-\d{2}-\d{2}$` shape check (`is_date_shape`) walks `.as_bytes()` by index,
-    checking length is exactly 10 and that positions 4/7 are `-` and all others are ASCII
-    digits. It never slices the string on a byte index, so it's safe against multi-byte UTF-8
-    content (those either fail the length check or fall outside the ASCII-digit range).
-- Shape-valid text is then parsed with `chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d")` —
-  this is what catches calendar-invalid dates like `2026-02-30` that match the regex shape but
-  aren't real dates. Both failure modes (bad shape, or right shape but chrono rejects it)
-  produce the identical diagnostic.
+- No `regex` crate dependency in this project, so the heading match is hand-rolled: the
+  `^## (.*)$` pattern is `line.strip_prefix("## ")`. This correctly excludes `#
+  text` and `### text`/deeper — in both cases the third byte isn't a space, so the prefix
+  strip fails and the line is skipped entirely (never falls through to date-validating a
+  level-1/3+ heading).
+- The strict `YYYY-MM-DD` shape-and-calendar check itself — including the byte-indexed shape
+  scan and the `chrono::NaiveDate::parse_from_str` call that catches calendar-invalid dates
+  like `2026-02-30` — no longer lives in this module. `check_log` calls
+  `crate::date::parse_ymd(text)` (see `docs/knowledge/foundation.md`), shared with the OKF
+  v0.2 `stale_after` field check (`checks/okf.rs`) since both need the identical notion of a
+  valid `YYYY-MM-DD` date. Both failure modes (bad shape, or right shape but chrono rejects it)
+  collapse to `parse_ymd` returning `None`, which produces the identical diagnostic here.
 - Known limitation (shared with `index_md.rs`/`frontmatter.rs`): content is split purely on
   `\n`, so a CRLF-terminated heading line carries a trailing `\r` into the captured text and
   will be flagged as an invalid date. Not handled specially here, consistent with the rest of

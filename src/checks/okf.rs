@@ -132,9 +132,11 @@ fn verified_entry_ok(m: &Mapping) -> bool {
 
 fn invalid_verified_diagnostic(idx: Option<usize>) -> Diagnostic {
     let message = match idx {
-        Some(i) => format!("'verified' entry {i} must be a mapping with 'by' and 'at' fields"),
+        Some(i) => format!(
+            "'verified' entry {i} must be a mapping with non-empty 'by' and 'at' fields"
+        ),
         None => {
-            "'verified' must be a mapping with 'by' and 'at' fields, or a list of such mappings"
+            "'verified' must be a mapping with non-empty 'by' and 'at' fields, or a list of such mappings"
                 .to_string()
         }
     };
@@ -353,7 +355,7 @@ mod tests {
             vec![Diagnostic {
                 line: 1,
                 rule: Rule::OkfInvalidVerified,
-                message: "'verified' must be a mapping with 'by' and 'at' fields, or a list of such mappings".to_string(),
+                message: "'verified' must be a mapping with non-empty 'by' and 'at' fields, or a list of such mappings".to_string(),
             }]
         );
     }
@@ -366,7 +368,7 @@ mod tests {
             vec![Diagnostic {
                 line: 1,
                 rule: Rule::OkfInvalidVerified,
-                message: "'verified' entry 0 must be a mapping with 'by' and 'at' fields"
+                message: "'verified' entry 0 must be a mapping with non-empty 'by' and 'at' fields"
                     .to_string(),
             }]
         );
@@ -383,7 +385,7 @@ mod tests {
                 line: 1,
                 rule: Rule::OkfInvalidVerified,
                 message:
-                    "'verified' must be a mapping with 'by' and 'at' fields, or a list of such mappings"
+                    "'verified' must be a mapping with non-empty 'by' and 'at' fields, or a list of such mappings"
                         .to_string(),
             }]
         );
