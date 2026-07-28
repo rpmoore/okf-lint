@@ -24,7 +24,7 @@ okf-lint path/to/bundle
 ```
 concept-a.md:7: line has trailing whitespace
 concept-b.md:1: missing or invalid YAML frontmatter (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#41-frontmatter)
-log.md:7: log.md heading is not a valid YYYY-MM-DD date (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#7-log-files-optional)
+log.md:7: log.md heading is not a valid YYYY-MM-DD date (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#9-log-files)
 ```
 
 Exit codes: `0` clean, `1` violations found, `2` usage/IO error.

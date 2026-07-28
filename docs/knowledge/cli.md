@@ -51,7 +51,7 @@ sections/`docs/knowledge/fmt.md` — this layer only formats and exits.
   `println!`.
 - If `diagnostic.rule.spec_url()` returns `Some(url)`, the line gets a trailing
   `" (spec: {url})"` pointing at the exact OKF SPEC.md section the rule enforces
-  (e.g. `#41-frontmatter`, `#6-index-files`, `#7-log-files-optional`). Style-rule
+  (e.g. `#41-frontmatter`, `#8-index-files`, `#9-log-files`). Style-rule
   diagnostics (line length, trailing whitespace, etc.) never get this suffix — they
   aren't OKF requirements, so there's no spec section to link to. See
   `docs/knowledge/foundation.md` for `Rule::spec_url`.

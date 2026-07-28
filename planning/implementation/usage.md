@@ -1,8 +1,9 @@
 # Usage Guide: okf-lint
 
 A Rust CLI that recursively lints every `.md` file in an OKF (Open Knowledge Format)
-bundle against 5 OKF-conformance rules and 5 generic markdown-hygiene rules, emitting
-compiler-style diagnostics for CI use.
+bundle against 5 core OKF conformance rules (§11 of the spec, unchanged between v0.1
+and v0.2), 6 OKF v0.2 optional-field format checks, and 5 generic markdown-hygiene
+rules, emitting compiler-style diagnostics for CI use.
 
 ## Quick Start
 
@@ -30,8 +31,8 @@ okf-lint docs/okf-bundle --max-line-length 120
 $ okf-lint tests/fixtures/integration_bundle
 concept-a.md:7: line has trailing whitespace
 concept-b.md:1: missing or invalid YAML frontmatter (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#41-frontmatter)
-log.md:7: log.md heading is not a valid YYYY-MM-DD date (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#7-log-files-optional)
-sub/index.md:5: index.md body line is not a heading or list item (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#6-index-files)
+log.md:7: log.md heading is not a valid YYYY-MM-DD date (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#9-log-files)
+sub/index.md:5: index.md body line is not a heading or list item (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#8-index-files)
 $ echo $?
 1
 ```
@@ -51,9 +52,15 @@ nested, `log.md`, or any other `.md` = a "concept" doc):
 |---|---|---|---|
 | `OkfMissingFrontmatter` | concept docs | no/invalid YAML frontmatter block | `#41-frontmatter` |
 | `OkfMissingType` | concept docs | frontmatter present but missing/empty `type` | `#41-frontmatter` |
-| `OkfIndexFrontmatterPlacement` | `index.md` | root: frontmatter has keys other than `okf_version`; nested: any frontmatter at all | `#6-index-files` |
-| `OkfIndexBodyStructure` | `index.md` | body line isn't a heading, list item, or list continuation; or a list item appears before any heading | `#6-index-files` |
-| `OkfLogDateHeading` | `log.md` | a `## ` heading isn't a valid `YYYY-MM-DD` calendar date, or valid dates aren't newest-first | `#7-log-files-optional` |
+| `OkfIndexFrontmatterPlacement` | `index.md` | root: frontmatter has keys other than `okf_version`; nested: any frontmatter at all | `#8-index-files` |
+| `OkfIndexBodyStructure` | `index.md` | body line isn't a heading, list item, or list continuation; or a list item appears before any heading | `#8-index-files` |
+| `OkfLogDateHeading` | `log.md` | a `## ` heading isn't a valid `YYYY-MM-DD` calendar date, or valid dates aren't newest-first | `#9-log-files` |
+| `OkfInvalidSources` | concept docs | present `sources` isn't a list of mappings, each with a non-empty `resource` | `#51-provenance-sources` |
+| `OkfInvalidGenerated` | concept docs | present `generated` isn't a mapping with a non-empty `by` | `#52-trust-generated-and-verified` |
+| `OkfInvalidVerified` | concept docs | present `verified` isn't a mapping (or list of mappings) with `by` and `at` | `#52-trust-generated-and-verified` |
+| `OkfInvalidStatus` | concept docs | present `status` isn't one of `draft`/`stable`/`deprecated` | `#54-lifecycle-status` |
+| `OkfInvalidStaleAfter` | concept docs | present `stale_after` isn't a valid `YYYY-MM-DD` date | `#55-lifecycle-stale_after` |
+| `OkfAttestedComputationMissingRuntime` | concept docs | `type: Attested Computation` but `runtime` is missing/empty | `#102-contract-fields` |
 
 Every OKF diagnostic's stdout line ends with `(spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md{anchor})`.
 
@@ -74,7 +81,7 @@ these are OKF spec requirements, so none carry a spec link):
   — the whole-pipeline entry point: walks `root`, classifies each `.md` file, runs the
   applicable checks, and returns a fully sorted diagnostic list. `LintError` variants:
   `PathNotFound`, `NotADirectory`, `Io { path, source }`, `InvalidUtf8`.
-- `diagnostic::Diagnostic { line, rule, message }` / `diagnostic::Rule` (10-variant enum,
+- `diagnostic::Diagnostic { line, rule, message }` / `diagnostic::Rule` (16-variant enum,
   `Ord` reflects the fixed OKF-then-style declaration order used for tie-breaks).
 - `walk::collect_md_files(root: &Path) -> Result<Vec<PathBuf>, LintError>` — sorted,
   root-relative `.md` file discovery. Does **not** skip dot-directories (e.g. `.hidden/`) —
