@@ -127,7 +127,7 @@ fn check_verified(mapping: &Mapping, diagnostics: &mut Vec<Diagnostic>) {
 }
 
 fn verified_entry_ok(m: &Mapping) -> bool {
-    has_non_empty_str(m, "by") && m.get("at").is_some()
+    has_non_empty_str(m, "by") && has_non_empty_str(m, "at")
 }
 
 fn invalid_verified_diagnostic(idx: Option<usize>) -> Diagnostic {
@@ -368,6 +368,23 @@ mod tests {
                 rule: Rule::OkfInvalidVerified,
                 message: "'verified' entry 0 must be a mapping with 'by' and 'at' fields"
                     .to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn verified_bare_mapping_with_empty_at_emits_diagnostic() {
+        // 'at' must be a non-empty string, not merely present, matching the
+        // strict non-empty checks used for 'resource'/'generated.by'/'runtime'.
+        let content = "---\ntype: Metric\nverified: { by: human:ahormati, at: \"\" }\n---\nbody";
+        assert_eq!(
+            check_concept(content),
+            vec![Diagnostic {
+                line: 1,
+                rule: Rule::OkfInvalidVerified,
+                message:
+                    "'verified' must be a mapping with 'by' and 'at' fields, or a list of such mappings"
+                        .to_string(),
             }]
         );
     }

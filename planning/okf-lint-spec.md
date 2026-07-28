@@ -61,11 +61,18 @@ source for what this linter treats as a hard error, states:
 >    structure described in §8 and §9 respectively when present.
 
 This linter implements exactly those three rules (broken into the
-discrete checks in §2 below) and nothing beyond them at the OKF level.
-Everything else in the upstream spec — recommended fields like `title`/
-`description`/`timestamp`, cross-link conventions, citations, tag
-conventions — is advisory (SHOULD-level) and is explicitly **not**
-checked by v1.
+discrete checks in §2 below) as the OKF **conformance** clause — the
+`type`, `index.md`/`log.md`-structure requirements a bundle must satisfy
+to be a valid OKF bundle at all. Everything else in the upstream spec —
+recommended fields like `title`/`description`/`timestamp`, cross-link
+conventions, citations, tag conventions — is advisory (SHOULD-level) and
+is explicitly **not** checked by v1.
+
+(The v0.2 amendment below adds a second, distinct category: optional-field
+*formatting* checks. These don't expand §11 conformance — a bundle
+without `sources`/`generated`/`status`/etc. is still fully conformant —
+they only fire when one of those optional fields is present and
+malformed. See the amendment at the end of §6 for the full list.)
 
 ## 2. Requirements: OKF conformance checks (errors)
 
