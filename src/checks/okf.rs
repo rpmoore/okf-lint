@@ -56,28 +56,30 @@ fn missing_frontmatter_diagnostic() -> Diagnostic {
     }
 }
 
-// §5.1: each `sources` entry requires a non-empty `resource`.
+// §5.1: each `sources` entry must be a mapping with a non-empty `resource`.
 fn check_sources(mapping: &Mapping, diagnostics: &mut Vec<Diagnostic>) {
     let Some(sources) = mapping.get("sources") else {
         return;
     };
     let Value::Sequence(entries) = sources else {
-        diagnostics.push(invalid_sources_diagnostic(None));
+        diagnostics.push(sources_diagnostic(
+            "'sources' must be a list of mappings".to_string(),
+        ));
         return;
     };
     for (idx, entry) in entries.iter().enumerate() {
-        let resource_ok = matches!(entry, Value::Mapping(m) if has_non_empty_str(m, "resource"));
-        if !resource_ok {
-            diagnostics.push(invalid_sources_diagnostic(Some(idx)));
-        }
+        let message = match entry {
+            Value::Mapping(m) if has_non_empty_str(m, "resource") => continue,
+            Value::Mapping(_) => {
+                format!("'sources' entry {idx} is missing required non-empty 'resource' field")
+            }
+            _ => format!("'sources' entry {idx} must be a mapping"),
+        };
+        diagnostics.push(sources_diagnostic(message));
     }
 }
 
-fn invalid_sources_diagnostic(idx: Option<usize>) -> Diagnostic {
-    let message = match idx {
-        Some(i) => format!("'sources' entry {i} is missing required non-empty 'resource' field"),
-        None => "'sources' must be a list of mappings".to_string(),
-    };
+fn sources_diagnostic(message: String) -> Diagnostic {
     Diagnostic {
         line: 1,
         rule: Rule::OkfInvalidSources,
@@ -302,6 +304,22 @@ mod tests {
                 line: 1,
                 rule: Rule::OkfInvalidSources,
                 message: "'sources' must be a list of mappings".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn sources_entry_not_a_mapping_emits_distinct_diagnostic() {
+        // A scalar list entry is a different problem than a mapping missing
+        // 'resource' — the message must say so, not claim 'resource' is
+        // missing from something that isn't a mapping at all.
+        let content = "---\ntype: Metric\nsources:\n  - just-a-string\n---\nbody";
+        assert_eq!(
+            check_concept(content),
+            vec![Diagnostic {
+                line: 1,
+                rule: Rule::OkfInvalidSources,
+                message: "'sources' entry 0 must be a mapping".to_string(),
             }]
         );
     }
