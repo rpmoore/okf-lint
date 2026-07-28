@@ -162,6 +162,17 @@ fn print_diagnostics(diagnostics: &[(PathBuf, Diagnostic)]) -> Result<(), ExitCo
     Ok(())
 }
 
+fn format_error(err: &LintError) -> String {
+    match err {
+        LintError::PathNotFound(path) => format!("cannot access path: {}", path.display()),
+        LintError::NotADirectory(path) => format!("not a directory: {}", path.display()),
+        LintError::Io { path, source } => {
+            format!("failed to read {}: {}", path.display(), source)
+        }
+        LintError::InvalidUtf8(path) => format!("file is not valid UTF-8: {}", path.display()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,16 +186,5 @@ mod tests {
     #[test]
     fn to_slash_path_single_component_is_unchanged() {
         assert_eq!(to_slash_path(Path::new("a.md")), "a.md");
-    }
-}
-
-fn format_error(err: &LintError) -> String {
-    match err {
-        LintError::PathNotFound(path) => format!("cannot access path: {}", path.display()),
-        LintError::NotADirectory(path) => format!("not a directory: {}", path.display()),
-        LintError::Io { path, source } => {
-            format!("failed to read {}: {}", path.display(), source)
-        }
-        LintError::InvalidUtf8(path) => format!("file is not valid UTF-8: {}", path.display()),
     }
 }

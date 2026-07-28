@@ -185,7 +185,8 @@ mod tests {
         let root_index_diag = results
             .iter()
             .find(|(path, d)| {
-                *path == PathBuf::from("index.md") && d.rule == Rule::OkfIndexFrontmatterPlacement
+                path.as_path() == Path::new("index.md")
+                    && d.rule == Rule::OkfIndexFrontmatterPlacement
             })
             .expect("expected root index.md frontmatter-placement diagnostic");
         assert!(
@@ -198,7 +199,7 @@ mod tests {
         let nested_index_diag = results
             .iter()
             .find(|(path, d)| {
-                *path == PathBuf::from("sub/index.md")
+                path.as_path() == Path::new("sub/index.md")
                     && d.rule == Rule::OkfIndexFrontmatterPlacement
             })
             .expect("expected nested index.md frontmatter-placement diagnostic");
@@ -210,7 +211,7 @@ mod tests {
         assert!(
             results
                 .iter()
-                .any(|(path, d)| *path == PathBuf::from("notes.md")
+                .any(|(path, d)| path.as_path() == Path::new("notes.md")
                     && d.rule == Rule::OkfMissingFrontmatter)
         );
     }
@@ -257,7 +258,7 @@ mod tests {
         assert!(
             included_results
                 .iter()
-                .any(|(path, d)| *path == PathBuf::from(".hidden/notes.md")
+                .any(|(path, d)| path.as_path() == Path::new(".hidden/notes.md")
                     && d.rule == Rule::OkfMissingFrontmatter)
         );
     }
