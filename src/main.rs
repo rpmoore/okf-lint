@@ -1,5 +1,6 @@
 mod checks;
 mod cli;
+mod date;
 mod diagnostic;
 mod fmt;
 mod frontmatter;

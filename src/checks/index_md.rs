@@ -141,6 +141,8 @@ mod tests {
 
     const PASS_ROOT: &str =
         include_str!("../../tests/fixtures/okf/index_frontmatter_placement/pass_root/index.md");
+    const PASS_ROOT_OKF_VERSION_0_2: &str =
+        include_str!("../../tests/fixtures/okf/v0_2_compat/root_index_okf_version_0_2/index.md");
     const FAIL_NONROOT: &str = include_str!(
         "../../tests/fixtures/okf/index_frontmatter_placement/fail_nonroot/sub/index.md"
     );
@@ -155,6 +157,19 @@ mod tests {
     #[test]
     fn pass_root_has_no_frontmatter_placement_diagnostics() {
         let diagnostics = check_index(PASS_ROOT, true);
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.rule == Rule::OkfIndexFrontmatterPlacement)
+        );
+    }
+
+    // OKF v0.2 §12 (Versioning) carries forward the v0.1 rule unchanged: a
+    // root index.md MAY declare `okf_version`, and the value itself is not
+    // validated. A bundle declaring the new spec version must still pass.
+    #[test]
+    fn pass_root_with_okf_version_0_2_has_no_frontmatter_placement_diagnostics() {
+        let diagnostics = check_index(PASS_ROOT_OKF_VERSION_0_2, true);
         assert!(
             !diagnostics
                 .iter()

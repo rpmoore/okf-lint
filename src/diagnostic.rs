@@ -6,6 +6,16 @@ pub enum Rule {
     OkfIndexFrontmatterPlacement,
     OkfIndexBodyStructure,
     OkfLogDateHeading,
+    // OKF v0.2 optional-family format checks, in this fixed order. These
+    // fields are never required (§11 conformance is unchanged from v0.1);
+    // these rules only fire when a document includes one and its shape
+    // doesn't match what §5/§10 document.
+    OkfInvalidSources,
+    OkfInvalidGenerated,
+    OkfInvalidVerified,
+    OkfInvalidStatus,
+    OkfInvalidStaleAfter,
+    OkfAttestedComputationMissingRuntime,
     // Markdown style, in this fixed order:
     StyleLineLength,
     StyleTrailingWhitespace,
@@ -24,10 +34,25 @@ impl Rule {
                 "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#41-frontmatter",
             ),
             Rule::OkfIndexFrontmatterPlacement | Rule::OkfIndexBodyStructure => Some(
-                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#6-index-files",
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#8-index-files",
             ),
             Rule::OkfLogDateHeading => Some(
-                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#7-log-files-optional",
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#9-log-files",
+            ),
+            Rule::OkfInvalidSources => Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#51-provenance-sources",
+            ),
+            Rule::OkfInvalidGenerated | Rule::OkfInvalidVerified => Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#52-trust-generated-and-verified",
+            ),
+            Rule::OkfInvalidStatus => Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#54-lifecycle-status",
+            ),
+            Rule::OkfInvalidStaleAfter => Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#55-lifecycle-stale_after",
+            ),
+            Rule::OkfAttestedComputationMissingRuntime => Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#102-contract-fields",
             ),
             Rule::StyleLineLength
             | Rule::StyleTrailingWhitespace
@@ -81,19 +106,55 @@ mod tests {
         assert_eq!(
             Rule::OkfIndexFrontmatterPlacement.spec_url(),
             Some(
-                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#6-index-files"
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#8-index-files"
             )
         );
         assert_eq!(
             Rule::OkfIndexBodyStructure.spec_url(),
             Some(
-                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#6-index-files"
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#8-index-files"
             )
         );
         assert_eq!(
             Rule::OkfLogDateHeading.spec_url(),
             Some(
-                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#7-log-files-optional"
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#9-log-files"
+            )
+        );
+        assert_eq!(
+            Rule::OkfInvalidSources.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#51-provenance-sources"
+            )
+        );
+        assert_eq!(
+            Rule::OkfInvalidGenerated.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#52-trust-generated-and-verified"
+            )
+        );
+        assert_eq!(
+            Rule::OkfInvalidVerified.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#52-trust-generated-and-verified"
+            )
+        );
+        assert_eq!(
+            Rule::OkfInvalidStatus.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#54-lifecycle-status"
+            )
+        );
+        assert_eq!(
+            Rule::OkfInvalidStaleAfter.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#55-lifecycle-stale_after"
+            )
+        );
+        assert_eq!(
+            Rule::OkfAttestedComputationMissingRuntime.spec_url(),
+            Some(
+                "https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md#102-contract-fields"
             )
         );
     }
@@ -113,7 +174,13 @@ mod tests {
         assert!(Rule::OkfMissingType < Rule::OkfIndexFrontmatterPlacement);
         assert!(Rule::OkfIndexFrontmatterPlacement < Rule::OkfIndexBodyStructure);
         assert!(Rule::OkfIndexBodyStructure < Rule::OkfLogDateHeading);
-        assert!(Rule::OkfLogDateHeading < Rule::StyleLineLength);
+        assert!(Rule::OkfLogDateHeading < Rule::OkfInvalidSources);
+        assert!(Rule::OkfInvalidSources < Rule::OkfInvalidGenerated);
+        assert!(Rule::OkfInvalidGenerated < Rule::OkfInvalidVerified);
+        assert!(Rule::OkfInvalidVerified < Rule::OkfInvalidStatus);
+        assert!(Rule::OkfInvalidStatus < Rule::OkfInvalidStaleAfter);
+        assert!(Rule::OkfInvalidStaleAfter < Rule::OkfAttestedComputationMissingRuntime);
+        assert!(Rule::OkfAttestedComputationMissingRuntime < Rule::StyleLineLength);
         assert!(Rule::StyleLineLength < Rule::StyleTrailingWhitespace);
         assert!(Rule::StyleTrailingWhitespace < Rule::StyleTrailingNewline);
         assert!(Rule::StyleTrailingNewline < Rule::StyleConsecutiveBlankLines);

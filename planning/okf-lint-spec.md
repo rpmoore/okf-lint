@@ -2,10 +2,18 @@
 
 `okf-lint` is a Rust CLI tool that walks a directory tree (an "OKF
 bundle") and validates it against the **Open Knowledge Format (OKF)
-v0.1** specification, plus a small set of general-purpose markdown
+v0.2** specification, plus a small set of general-purpose markdown
 hygiene rules. It is designed to run in CI: it prints compiler-style
 diagnostics and exits with a nonzero status if any violations are
 found.
+
+**v0.1 → v0.2 note:** upstream's v0.2 revision (PR #227) is an additive,
+backward-compatible minor version — it adds optional provenance/trust/
+lifecycle frontmatter families and a new `Attested Computation` concept
+type, but leaves the conformance clause below (and everything this
+linter checks) unchanged. The rule numbers this document cites (§8, §9,
+§11...) reflect v0.2's section numbering, which shifted from v0.1 (the
+same clause was §6/§7/§9 there).
 
 This document is self-contained. It does not assume the reader has
 access to the upstream OKF spec or any prior conversation — everything
@@ -42,15 +50,15 @@ enforces the following structural facts about the format:
   `YYYY-MM-DD` ISO 8601 form, newest first, each followed by a bulleted
   list of change entries.
 
-The upstream spec's conformance clause (§9), which is the authoritative
+The upstream spec's conformance clause (§11), which is the authoritative
 source for what this linter treats as a hard error, states:
 
-> A bundle is conformant with OKF v0.1 if:
+> A bundle is conformant with OKF v0.2 if:
 > 1. Every non-reserved `.md` file in the tree contains a parseable YAML
 >    frontmatter block.
 > 2. Every frontmatter block contains a non-empty `type` field.
 > 3. Every reserved filename (`index.md`, `log.md`) follows the
->    structure described in §6 and §7 respectively when present.
+>    structure described in §8 and §9 respectively when present.
 
 This linter implements exactly those three rules (broken into the
 discrete checks in §2 below) and nothing beyond them at the OKF level.
@@ -61,7 +69,7 @@ checked by v1.
 
 ## 2. Requirements: OKF conformance checks (errors)
 
-Each of these is a hard error. All are derived from OKF §9 above.
+Each of these is a hard error. All are derived from OKF §11 above.
 
 1. **Missing or unparseable frontmatter.** A non-reserved `.md` file
    whose content does not begin with a `---` line, or whose frontmatter
@@ -224,6 +232,26 @@ without a new decision from the user:
 - Configuration file support.
 - Ignore patterns / per-file or per-directory suppression.
 - Markdown heading-structure linting (skipped levels, duplicate H1s).
+
+**Amendment (v0.2 optional-field format checks):** the user made exactly the
+"new decision" this section anticipates. Upstream v0.2 (§5, §10) added
+optional `sources`/`generated`/`verified`/`status`/`stale_after` frontmatter
+families and the `Attested Computation` concept type. These fields are
+still never *required* — §11 conformance is unchanged — but when one is
+*present*, its shape is now validated as a hard error (same severity/exit
+code as every other OKF rule, no new warning tier):
+
+- `sources`: a sequence of mappings, each with non-empty `resource`.
+- `generated`: a mapping with non-empty `by`.
+- `verified`: a mapping, or sequence of mappings, each with `by` and `at`.
+- `status`: one of `draft`, `stable`, `deprecated`.
+- `stale_after`: a real `YYYY-MM-DD` calendar date.
+- `runtime`: required, non-empty, specifically when `type` is
+  `Attested Computation`.
+
+`parameters`/`computation`/`executor`/`attester` are deliberately **not**
+validated — out of scope for this decision. See `docs/knowledge/concept-checks.md`
+for the implementation (`src/checks/okf.rs`) and rule names.
 
 ## Next step
 

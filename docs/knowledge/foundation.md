@@ -9,15 +9,29 @@ orchestration layer import.
 
 ## `src/diagnostic.rs`
 
-- `Rule` — enum of every check rule (5 OKF conformance + 5 markdown style),
-  in a fixed declaration order. That order is load-bearing: it is the
-  tie-break used when two diagnostics land on the same `(file, line)`.
+- `Rule` — enum of every check rule (5 OKF v0.1 conformance + 6 OKF v0.2
+  optional-field format checks + 5 markdown style), in a fixed declaration
+  order. That order is load-bearing: it is the tie-break used when two
+  diagnostics land on the same `(file, line)`.
 - `Rule::spec_url(&self) -> Option<&'static str>` — the OKF SPEC.md section
   (with anchor) a given OKF rule enforces, e.g. `OkfMissingFrontmatter` and
-  `OkfMissingType` both point at `#41-frontmatter`. Returns `None` for the 5
-  style rules, since those are project convention rather than OKF-derived —
-  the `None` is itself meaningful output (see `src/main.rs`).
+  `OkfMissingType` both point at `#41-frontmatter`. Multiple rules can share
+  one anchor when the spec covers them in the same subsection (e.g.
+  `OkfInvalidGenerated`/`OkfInvalidVerified` both point at `#52-trust-...`,
+  since §5.2 documents both fields together). Returns `None` for the 5 style
+  rules, since those are project convention rather than OKF-derived — the
+  `None` is itself meaningful output (see `src/main.rs`).
 - `Diagnostic { line, rule, message }` — one lint finding.
+
+## `src/date.rs`
+
+- `parse_ymd(text: &str) -> Option<NaiveDate>` — strict `YYYY-MM-DD`
+  parsing: exact 10-byte shape check first (rejects e.g. `2026/05/22` or a
+  trailing space that `chrono` alone might tolerate), then
+  `NaiveDate::parse_from_str` to reject calendar-invalid dates like
+  `2026-02-30`. Shared by `checks/log_md.rs` (date headings, §9) and
+  `checks/okf.rs` (the `stale_after` field, §5.5) — both need the identical
+  strict-date notion of "valid `YYYY-MM-DD`".
 
 ## `src/frontmatter.rs`
 

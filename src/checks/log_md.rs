@@ -1,9 +1,10 @@
+use crate::date::parse_ymd;
 use crate::diagnostic::{Diagnostic, Rule};
 use chrono::NaiveDate;
 
 /// Runs OKF conformance rule 5 (OkfLogDateHeading) against the content of a
 /// log.md file: every level-2 (`##`) heading must be a real calendar date in
-/// YYYY-MM-DD format, and valid dates must appear newest-first (§7). Headings
+/// YYYY-MM-DD format, and valid dates must appear newest-first (§9). Headings
 /// at other levels are not inspected.
 pub fn check_log(content: &str) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -15,14 +16,9 @@ pub fn check_log(content: &str) -> Vec<Diagnostic> {
         };
         let line_no = idx + 1;
 
-        if !is_date_shape(text) {
-            diagnostics.push(invalid_date_diagnostic(line_no));
-            continue;
-        }
-
-        match NaiveDate::parse_from_str(text, "%Y-%m-%d") {
-            Err(_) => diagnostics.push(invalid_date_diagnostic(line_no)),
-            Ok(date) => {
+        match parse_ymd(text) {
+            None => diagnostics.push(invalid_date_diagnostic(line_no)),
+            Some(date) => {
                 // A shape/calendar-invalid heading in between two valid dates
                 // is already flagged on its own line above and doesn't reset
                 // ordering tracking — the two valid dates on either side of
@@ -49,20 +45,6 @@ fn invalid_date_diagnostic(line: usize) -> Diagnostic {
         rule: Rule::OkfLogDateHeading,
         message: "log.md heading is not a valid YYYY-MM-DD date".to_string(),
     }
-}
-
-fn is_date_shape(text: &str) -> bool {
-    let bytes = text.as_bytes();
-    if bytes.len() != 10 {
-        return false;
-    }
-    bytes.iter().enumerate().all(|(i, &b)| {
-        if i == 4 || i == 7 {
-            b == b'-'
-        } else {
-            b.is_ascii_digit()
-        }
-    })
 }
 
 #[cfg(test)]

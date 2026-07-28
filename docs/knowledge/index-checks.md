@@ -26,7 +26,7 @@ OKF conformance rules for `index.md` files.
     `in_list_item` is true — a continuation line indented by 2+ spaces.
     Anything else is one diagnostic per violating line.
   - A second, monotonic `has_seen_heading` boolean additionally enforces
-    spec §6's "each grouping concepts under a heading": a list item is
+    spec §8's "each grouping concepts under a heading": a list item is
     syntactically valid (`in_list_item` still becomes `true`, so
     continuation lines under it aren't separately flagged) but gets its own
     diagnostic ("index.md list item appears before any section heading") if
@@ -40,3 +40,7 @@ OKF conformance rules for `index.md` files.
     plan owner during section-03's code review.
 - Both rules are independent and can both fire on the same file (e.g. a
   non-root `index.md` with bad frontmatter and a stray body paragraph).
+- **OKF v0.2**: the root-only `okf_version` exception (spec §12,
+  Versioning) is unchanged from v0.1 — only the key name is checked, never
+  the value, so `okf_version: "0.2"` passes exactly like `okf_version: 1`
+  did. See `tests/fixtures/okf/v0_2_compat/root_index_okf_version_0_2/`.

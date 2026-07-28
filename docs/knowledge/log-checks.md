@@ -12,7 +12,7 @@ OKF conformance rule for `log.md` files.
   `Rule::OkfLogDateHeading`):
   - **Date validity**: every level-2 (`##`) heading must be a real calendar date in
     `YYYY-MM-DD` format. Headings at other levels (`#`, `###`, ...) are not inspected at all.
-  - **Newest-first ordering** (spec §7: "a flat list of date-grouped entries, newest first"):
+  - **Newest-first ordering** (spec §9: "a flat list of date-grouped entries, newest first"):
     a running `last_valid_date: Option<NaiveDate>` is updated after every calendar-valid
     heading; if the next valid date is *strictly greater* (i.e. more recent) than the last one
     seen, that's an order violation — "log.md date headings must be in newest-first
